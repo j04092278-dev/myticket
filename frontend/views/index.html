@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MyTicket | Inicio</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/css/global.css">
+  <style>
+    .hero {
+      text-align:center;
+      padding:2rem 1rem;
+      background:var(--bg-card);
+      border-radius:1.5rem;
+      margin-bottom:1.5rem;
+      backdrop-filter:blur(10px);
+      border:1px solid var(--red-main);
+      box-shadow:0 0 30px rgba(255,0,0,0.15);
+    }
+    @media (min-width: 768px) {
+      .hero { padding:4rem; border-radius:2rem; margin-bottom:2rem; }
+    }
+    .hero h1 {
+      font-size:2rem;
+      background:linear-gradient(135deg, var(--red-main), var(--red-light));
+      -webkit-background-clip:text;
+      background-clip:text;
+      color:transparent;
+      margin-bottom:0.5rem;
+      font-family: 'Orbitron', sans-serif;
+      word-break: break-word;
+    }
+    @media (min-width: 768px) {
+      .hero h1 { font-size:3rem; margin-bottom:1rem; }
+    }
+    .hero p {
+      font-family: 'Poppins', sans-serif;
+      font-size:1rem;
+      color: var(--text-secondary);
+      max-width: 600px;
+      margin: 0 auto 1rem;
+    }
+    @media (min-width: 768px) {
+      .hero p { font-size:1.2rem; margin-bottom:1.5rem; }
+    }
+    .features {
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+      gap:1rem;
+      margin-top:1.5rem;
+    }
+    @media (min-width: 768px) {
+      .features { gap:2rem; margin-top:2rem; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); }
+    }
+    .feature {
+      background:var(--bg-card);
+      border-radius:1.2rem;
+      padding:1.2rem;
+      text-align:center;
+      transition:0.3s;
+      border:1px solid var(--border-color);
+    }
+    @media (min-width: 768px) {
+      .feature { padding:1.5rem; border-radius:1.5rem; }
+    }
+    .feature:hover {
+      transform:translateY(-5px);
+      border-color:var(--red-main);
+      box-shadow:0 0 20px rgba(255,0,0,0.2);
+    }
+    .feature i { font-size:2.5rem; color:var(--red-main); margin-bottom:0.5rem; }
+    @media (min-width: 768px) { .feature i { font-size:3rem; margin-bottom:1rem; } }
+    .feature h3 {
+      color:var(--red-light);
+      font-family: 'Orbitron', sans-serif;
+      font-size:1.1rem;
+    }
+    @media (min-width: 768px) { .feature h3 { font-size:1.3rem; } }
+    .feature p {
+      color:var(--text-secondary);
+      font-family: 'Poppins', sans-serif;
+      font-size:0.85rem;
+    }
+    @media (min-width: 768px) { .feature p { font-size:1rem; } }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-container">
+      <a href="/index.html" class="logo">
+        <img src="/img/logo.png" alt="MyTicket" class="logo-img">
+      </a>
+      <input type="checkbox" id="menu-toggle">
+      <label for="menu-toggle" class="menu-icon"><i class="fas fa-bars"></i></label>
+      <div class="nav-links">
+        <a href="/index.html">Inicio</a>
+        <a href="/eventos.html">Eventos</a>
+        <a href="/mis-boletos.html">Mis Boletos</a>
+        <a href="/admin-login.html" style="color:var(--red-main);">Admin</a>
+      </div>
+      <div class="nav-auth">
+        <span id="userName" class="user-name" style="display:none;"></span>
+        <a href="/login.html" id="loginBtn" class="btn-auth">Iniciar Sesión</a>
+        <button id="logoutBtn" class="btn-logout" style="display:none;">Cerrar Sesión</button>
+      </div>
+    </div>
+  </nav>
+  <div class="main-content">
+    <div class="hero">
+      <h1>MyTicket – Tu Puerta al Universo de Eventos</h1>
+      <p>Compra boletos para conciertos, festivales y deportes con preventas exclusivas.</p>
+      <a href="/eventos.html" class="btn-primary" style="display:inline-block; width:auto; margin-top:0.5rem; padding:0.6rem 1.5rem;">Explorar Eventos</a>
+    </div>
+    <div class="features">
+      <div class="feature"><i class="fas fa-shield-alt"></i><h3>Compra Segura</h3><p>Protegemos tu transacción</p></div>
+      <div class="feature"><i class="fas fa-mobile-alt"></i><h3>Acceso Móvil</h3><p>QR en tu celular</p></div>
+      <div class="feature"><i class="fas fa-tags"></i><h3>Preventa Exclusiva</h3><p>Descuentos especiales</p></div>
+    </div>
+  </div>
+  <footer class="footer">
+    <p>© 2025 MyTicket – Tu plataforma de confianza</p>
+    <p style="font-size:0.8rem;">Compra segura | Acceso móvil | Soporte 24/7</p>
+  </footer>
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/ui.js"></script>
+  <script src="/js/starfield.js"></script>
+  <script>
+    createStarField();
+    async function loadNav() {
+      try {
+        const res = await Auth.getCurrentUser();
+        if (res && res.user) {
+          const userName = document.getElementById('userName');
+          userName.innerText = res.user.nombre.split(' ')[0];
+          userName.style.display = 'inline';
+          document.getElementById('loginBtn').style.display = 'none';
+          document.getElementById('logoutBtn').style.display = 'inline-block';
+        } else {
+          document.getElementById('loginBtn').style.display = 'inline-block';
+          document.getElementById('logoutBtn').style.display = 'none';
+          document.getElementById('userName').style.display = 'none';
+        }
+      } catch(e) {}
+    }
+    document.getElementById('logoutBtn').onclick = async () => { await Auth.logout(); location.href='/'; };
+    loadNav();
+  </script>
+</body>
+</html>

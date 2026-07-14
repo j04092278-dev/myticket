@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MyTicket | Eventos</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="/css/eventos.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-container">
+      <a href="/index.html" class="logo">
+        <img src="/img/logo.png" alt="MyTicket" class="logo-img">
+      </a>
+      <input type="checkbox" id="menu-toggle">
+      <label for="menu-toggle" class="menu-icon"><i class="fas fa-bars"></i></label>
+      <div class="nav-links">
+        <a href="/index.html">Inicio</a>
+        <a href="/eventos.html">Eventos</a>
+        <a href="/mis-boletos.html">Mis Boletos</a>
+        <a href="/admin-login.html" style="color:var(--red-main);">Admin</a>
+      </div>
+      <div class="nav-auth">
+        <span id="userName" class="user-name" style="display:none;"></span>
+        <a href="/login.html" id="loginBtn" class="btn-auth">Iniciar Sesión</a>
+        <button id="logoutBtn" class="btn-logout" style="display:none;">Cerrar Sesión</button>
+      </div>
+    </div>
+  </nav>
+  <div class="main-content">
+    <div id="eventosContainer" class="loader">
+      <div class="spinner"></div>
+      <p style="color:var(--text-secondary); font-family:'Poppins',sans-serif;">Cargando eventos...</p>
+    </div>
+  </div>
+  <footer class="footer">
+    <p>© 2025 MyTicket – Eventos</p>
+  </footer>
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/ui.js"></script>
+  <script src="/js/starfield.js"></script>
+  <script src="/js/eventos.js"></script>
+  <script>
+    createStarField();
+    async function loadNav() {
+      try {
+        const res = await Auth.getCurrentUser();
+        if (res && res.user) {
+          const userName = document.getElementById('userName');
+          userName.innerText = res.user.nombre.split(' ')[0];
+          userName.style.display = 'inline';
+          document.getElementById('loginBtn').style.display = 'none';
+          document.getElementById('logoutBtn').style.display = 'inline-block';
+        } else {
+          document.getElementById('loginBtn').style.display = 'inline-block';
+          document.getElementById('logoutBtn').style.display = 'none';
+          document.getElementById('userName').style.display = 'none';
+        }
+      } catch(e) {}
+    }
+    document.getElementById('logoutBtn').onclick = async () => { await Auth.logout(); location.href='/'; };
+    loadNav();
+  </script>
+</body>
+</html>

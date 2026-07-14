@@ -1,0 +1,118 @@
+.eventos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+@media (min-width: 768px) {
+  .eventos-grid { gap: 2rem; margin-top: 2rem; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+}
+.evento-card {
+  background: var(--bg-card);
+  backdrop-filter: blur(10px);
+  border-radius: 1.2rem;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  transition: 0.3s;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+}
+.evento-card:hover { transform: translateY(-5px); border-color: var(--red-main); box-shadow: 0 8px 30px rgba(255, 0, 0, 0.3); }
+.evento-imagen {
+  height: 150px;
+  background: linear-gradient(135deg, #2D0A0A, #1A0505);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3rem;
+  color: var(--red-main);
+  flex-shrink: 0;
+}
+@media (min-width: 768px) { .evento-imagen { height: 180px; font-size: 4rem; } }
+.evento-info { padding: 1rem; flex: 1; display: flex; flex-direction: column; }
+@media (min-width: 768px) { .evento-info { padding: 1.5rem; } }
+.evento-titulo {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 0.3rem;
+  color: var(--red-light);
+  font-family: 'Orbitron', sans-serif;
+  word-break: break-word;
+}
+@media (min-width: 768px) { .evento-titulo { font-size: 1.4rem; } }
+.evento-info p {
+  color: var(--text-secondary);
+  margin: 0.2rem 0;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.85rem;
+}
+@media (min-width: 768px) { .evento-info p { font-size: 0.95rem; } }
+.evento-info p i { color: var(--red-main); margin-right: 0.3rem; }
+.precio {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--red-main);
+  margin: 0.5rem 0;
+  font-family: 'Orbitron', sans-serif;
+}
+@media (min-width: 768px) { .precio { font-size: 1.8rem; } }
+.countdown-container {
+  margin: 0.5rem 0;
+  padding: 0.5rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 0.8rem;
+  font-family: 'Poppins', sans-serif;
+}
+.btn-comprar {
+  width: 100%;
+  padding: 0.6rem;
+  background: linear-gradient(135deg, var(--red-dark), var(--red-main));
+  border: none;
+  border-radius: 2rem;
+  font-weight: 700;
+  color: white;
+  cursor: pointer;
+  margin-top: auto;
+  transition: 0.2s;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.9rem;
+}
+@media (min-width: 768px) { .btn-comprar { padding: 0.8rem; font-size: 1rem; } }
+.btn-comprar:hover:not(:disabled) { transform: scale(1.02); box-shadow: 0 4px 20px rgba(255, 0, 0, 0.4); }
+.btn-comprar:disabled { background: var(--border-dark); cursor: not-allowed; }
+.badge-preventa {
+  background: var(--red-main);
+  color: white;
+  padding: 0.1rem 0.6rem;
+  border-radius: 2rem;
+  font-size: 0.7rem;
+  margin-left: 0.3rem;
+  font-family: 'Poppins', sans-serif;
+  display: inline-block;
+}
+@media (min-width: 768px) { .badge-preventa { font-size: 0.8rem; padding: 0.2rem 0.8rem; } }
+
+#compraModal > div, #ineModal > div, #pagoModal > div, #boletoModal > div {
+  max-width: 95vw !important;
+  margin: 0 auto;
+  padding: 1rem !important;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+@media (min-width: 500px) {
+  #compraModal > div, #ineModal > div, #pagoModal > div, #boletoModal > div {
+    max-width: 450px !important;
+    padding: 2rem !important;
+  }
+}
+#compraModal input, #compraModal select, #ineModal input, #ineModal select, #pagoModal input, #pagoModal select {
+  font-size: 0.9rem !important;
+  padding: 0.6rem !important;
+}
+@media (min-width: 768px) {
+  #compraModal input, #compraModal select, #ineModal input, #ineModal select, #pagoModal input, #pagoModal select {
+    font-size: 1rem !important;
+    padding: 0.8rem !important;
+  }
+}

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MyTicket | Acceso</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="/css/login.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-container">
+      <a href="/index.html" class="logo">
+        <img src="/img/logo.png" alt="MyTicket" class="logo-img">
+      </a>
+      <div><a href="/" style="color:var(--text-secondary); font-family:'Poppins',sans-serif;">Inicio</a></div>
+    </div>
+  </nav>
+  <div class="login-container">
+    <div class="login-card">
+      <div class="login-header"><i class="fas fa-user-astronaut"></i><h2 id="formTitle">Iniciar Sesión</h2></div>
+      <form id="authForm">
+        <div id="registerFields" style="display:none;">
+          <input type="text" id="regNombre" placeholder="Nombre completo">
+          <input type="number" id="regEdad" placeholder="Edad">
+          <input type="tel" id="regTelefono" placeholder="Teléfono">
+        </div>
+        <input type="email" id="email" placeholder="Correo electrónico" required>
+        <input type="password" id="password" placeholder="Contraseña" required>
+        <button type="submit" id="submitBtn" class="btn-primary">Ingresar</button>
+      </form>
+      <p id="toggleText" class="toggle-link">¿No tienes cuenta? Regístrate</p>
+    </div>
+  </div>
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/ui.js"></script>
+  <script src="/js/starfield.js"></script>
+  <script src="/js/login.js"></script>
+</body>
+</html>

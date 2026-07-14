@@ -1,0 +1,136 @@
+.admin-dashboard {
+  background: var(--bg-secondary);
+  border-radius: 1.5rem;
+  padding: 1rem;
+  border: 1px solid var(--border-color);
+}
+@media (min-width: 768px) { .admin-dashboard { padding: 2rem; border-radius: 2rem; } }
+.admin-header {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.8rem;
+  margin-bottom: 1.5rem;
+}
+@media (min-width: 768px) {
+  .admin-header { flex-direction: row; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 2rem; }
+}
+.admin-header h1 {
+  color: var(--red-light);
+  font-size: 1.5rem;
+  text-shadow: 0 0 20px rgba(255, 0, 0, 0.2);
+  font-family: 'Orbitron', sans-serif;
+  word-break: break-word;
+}
+@media (min-width: 768px) { .admin-header h1 { font-size: 2rem; } }
+.admin-stats { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.stat-card {
+  background: var(--bg-card);
+  padding: 0.5rem 1rem;
+  border-radius: 0.8rem;
+  border-left: 3px solid var(--red-main);
+  color: var(--text-primary);
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.8rem;
+}
+@media (min-width: 768px) {
+  .stat-card { padding: 0.8rem 1.5rem; font-size: 1rem; border-left: 4px solid var(--red-main); }
+}
+.stat-card i { color: var(--red-main); margin-right: 0.3rem; }
+.admin-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+@media (min-width: 600px) { .admin-actions { flex-direction: row; gap: 1rem; } }
+.btn-neon {
+  background: linear-gradient(135deg, var(--red-dark), var(--red-main));
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 2rem;
+  font-weight: 700;
+  color: white;
+  cursor: pointer;
+  transition: 0.3s;
+  box-shadow: 0 4px 15px var(--shadow-red);
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.85rem;
+  text-align: center;
+}
+@media (min-width: 768px) {
+  .btn-neon { padding: 0.8rem 1.8rem; font-size: 1rem; }
+}
+.btn-neon:hover { transform: scale(1.05); box-shadow: 0 4px 25px var(--shadow-red-strong); }
+.btn-neon-secondary {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  padding: 0.6rem 1.2rem;
+  border-radius: 2rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.85rem;
+  text-align: center;
+}
+@media (min-width: 768px) {
+  .btn-neon-secondary { padding: 0.8rem 1.8rem; font-size: 1rem; }
+}
+.btn-neon-secondary:hover { border-color: var(--red-main); color: var(--text-primary); }
+.event-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  margin-top: 0.8rem;
+}
+@media (min-width: 768px) { .event-list { gap: 1rem; margin-top: 1rem; } }
+.event-card {
+  background: var(--bg-card);
+  border-radius: 0.8rem;
+  padding: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border-left: 3px solid var(--red-main);
+  transition: 0.3s;
+}
+@media (min-width: 768px) {
+  .event-card { padding: 1rem; flex-direction: row; justify-content: space-between; align-items: center; gap: 1rem; border-left: 4px solid var(--red-main); }
+}
+.event-card:hover { background: rgba(255, 0, 0, 0.08); border-left-color: var(--red-light); }
+.event-card strong {
+  color: var(--red-light);
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.95rem;
+}
+@media (min-width: 768px) { .event-card strong { font-size: 1.1rem; } }
+.event-card div {
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+@media (min-width: 768px) { .event-card div { font-size: 0.95rem; } }
+.form-evento input, .form-evento select, .form-evento textarea {
+  width: 100%;
+  padding: 0.6rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  border-radius: 0.8rem;
+  color: var(--text-primary);
+  margin-bottom: 0.8rem;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.9rem;
+}
+@media (min-width: 768px) {
+  .form-evento input, .form-evento select, .form-evento textarea {
+    padding: 0.8rem; font-size: 1rem; margin-bottom: 1rem;
+  }
+}
+.form-evento input:focus, .form-evento select:focus, .form-evento textarea:focus {
+  border-color: var(--red-main);
+  outline: none;
+  box-shadow: 0 0 10px rgba(255, 0, 0, 0.2);
+}
+.form-evento input[type="file"] { border: 1px dashed var(--red-main); padding: 0.4rem; }
+.preview-img { max-width: 100%; max-height: 120px; margin-top: 0.3rem; border-radius: 0.5rem; }
+@media (min-width: 768px) { .preview-img { max-height: 150px; } }
