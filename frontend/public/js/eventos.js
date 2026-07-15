@@ -1,4 +1,3 @@
-// frontend/public/js/eventos.js
 let currentUser = null;
 let countdownIntervals = [];
 
@@ -230,7 +229,6 @@ async function procederConCompra(eventoId, esPreventa, eventoNombre, precioUnita
   mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asiento, eventoNombre, precioUnitario);
 }
 
-// ========== MODAL DE VALIDACIÓN DE INE CON SELFIE (CORREGIDO) ==========
 function mostrarModalValidacionINE(callback) {
   const modal = document.createElement('div');
   modal.id = 'ineModal';
@@ -248,7 +246,6 @@ function mostrarModalValidacionINE(callback) {
     z-index: 10000;
     padding: 20px;
   `;
-
   modal.innerHTML = `
     <div style="background: linear-gradient(145deg, rgba(10,20,45,0.95), rgba(26,11,46,0.95)); border-radius: 2rem; padding: 2rem; max-width: 550px; width: 100%; border: 2px solid #ff0000; box-shadow: 0 0 40px rgba(255,0,0,0.3); max-height: 90vh; overflow-y: auto;">
       <h2 style="color: #ff3333; font-size: 1.8rem; text-align: center;">🔐 Validación de INE</h2>
@@ -256,11 +253,11 @@ function mostrarModalValidacionINE(callback) {
       <form id="ineFormModal" enctype="multipart/form-data">
         <div style="margin-bottom: 1rem;">
           <label style="color: #ccc; display: block; margin-bottom: 0.3rem;">Número de INE</label>
-          <input type="text" id="numINE" placeholder="Ej: MRHRJN06121909H900" required style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem;">
+          <input type="text" id="numINE" placeholder="Ej: 1234ABC123456789" required style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem;">
         </div>
         <div style="margin-bottom: 1rem;">
           <label style="color: #ccc; display: block; margin-bottom: 0.3rem;">CURP</label>
-          <input type="text" id="curpINE" placeholder="Ej: MAHJ061219HDFRRNA6" required style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem;">
+          <input type="text" id="curpINE" placeholder="Ej: GODE561231HDFRRL09" required style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem;">
         </div>
         <div style="margin-bottom: 1rem;">
           <label style="color: #ccc; display: block; margin-bottom: 0.3rem;">Nombre completo</label>
@@ -292,10 +289,8 @@ function mostrarModalValidacionINE(callback) {
       </button>
     </div>
   `;
-
   document.body.appendChild(modal);
 
-  // ===== LÓGICA DE CÁMARA =====
   let stream = null;
   const video = document.getElementById('selfieVideo');
   const camBtn = document.getElementById('selfieCamBtn');
@@ -348,7 +343,6 @@ function mostrarModalValidacionINE(callback) {
     callback(false);
   };
 
-  // ===== ENVÍO DEL FORMULARIO =====
   document.getElementById('ineFormModal').onsubmit = async (e) => {
     e.preventDefault();
     const formData = new FormData();
@@ -356,7 +350,6 @@ function mostrarModalValidacionINE(callback) {
     formData.append('curp', document.getElementById('curpINE').value);
     formData.append('nombre_completo', document.getElementById('nombreINE').value);
     formData.append('fecha_nacimiento', document.getElementById('fechaNacINE').value);
-
     const fotoINE = document.getElementById('fotoINE').files[0];
     const selfie = document.getElementById('selfieINE').files[0];
     if (!fotoINE || !selfie) {
@@ -365,10 +358,6 @@ function mostrarModalValidacionINE(callback) {
     }
     formData.append('ineImage', fotoINE);
     formData.append('selfieImage', selfie);
-
-    // Mostrar mensaje de carga
-    showToast('⏳ Validando INE y verificando facialmente...', 'info');
-
     try {
       const res = await fetch('/api/ine/validar-con-imagen', {
         method: 'POST',
@@ -377,11 +366,7 @@ function mostrarModalValidacionINE(callback) {
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        if (data.facialVerificado) {
-          showToast('✅ INE validado correctamente. Verificación facial exitosa.', 'success');
-        } else {
-          showToast('⚠️ INE guardado pero la verificación facial no coincidió. Reintenta con mejor iluminación.', 'warning');
-        }
+        showToast('✅ INE validado correctamente. Ahora puedes comprar.', 'success');
         modal.remove();
         if (stream) stream.getTracks().forEach(t => t.stop());
         callback(true);
@@ -465,16 +450,12 @@ function mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asie
   document.getElementById('pagoForm').onsubmit = async (e) => {
     e.preventDefault();
     const nombre = document.getElementById('nombreTarjeta').value;
-    const num_tarjeta = document.getElementById('numTarjeta').value.replace(/\s/g, '');
+    const num_tarjeta = document.getElementById('numTarjeta').value;
     const fecha = document.getElementById('fechaVencimiento').value;
     const cv = document.getElementById('cvv').value;
     const factor_tarjeta = document.getElementById('tipoTarjeta').value;
     if (!nombre || !num_tarjeta || !fecha || !cv) {
       showToast('Por favor, completa todos los campos de la tarjeta', 'warning');
-      return;
-    }
-    if (num_tarjeta.length < 16) {
-      showToast('Número de tarjeta inválido (16 dígitos)', 'warning');
       return;
     }
     try {

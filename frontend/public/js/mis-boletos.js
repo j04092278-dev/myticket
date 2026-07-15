@@ -57,9 +57,6 @@ async function cargarBoletos() {
               <div style="text-align:center;">
                 ${b.qr_codigo ? `<img src="${b.qr_codigo}" alt="QR" style="width:100px; height:100px; border:2px solid var(--red-main); border-radius:0.8rem; padding:0.2rem; background:white;">` : ''}
                 <div style="font-size:0.7rem; color:var(--text-muted); margin-top:4px;">Escanea para acceder</div>
-                <button class="btn-renviar" data-codigo="${b.codigo_unico}" data-evento="${b.nombre_evento}" style="margin-top:0.5rem; background:rgba(255,255,255,0.1); border:1px solid #ff0000; color:white; padding:0.3rem 0.8rem; border-radius:0.5rem; cursor:pointer; font-family:'Poppins',sans-serif; font-size:0.8rem;">
-                  📧 Reenviar
-                </button>
               </div>
             </div>
             <div style="margin-top:0.8rem; padding-top:0.8rem; border-top:1px dashed var(--red-main); text-align:center; font-size:0.7rem; color:var(--text-muted);">
@@ -71,22 +68,6 @@ async function cargarBoletos() {
     });
     html += '</div>';
     container.innerHTML = html;
-
-    // Asignar evento a los botones de reenvío
-    document.querySelectorAll('.btn-renviar').forEach(btn => {
-      btn.onclick = async () => {
-        const codigo = btn.dataset.codigo;
-        const evento = btn.dataset.evento;
-        if (confirm(`¿Reenviar el boleto para "${evento}" a tu correo?`)) {
-          try {
-            await API.request(`/boletos/reenviar/${codigo}`, { method: 'POST' });
-            showToast('✅ Boleto reenviado a tu correo', 'success');
-          } catch (err) {
-            showToast('❌ Error al reenviar: ' + err.message, 'error');
-          }
-        }
-      };
-    });
   } catch (err) {
     if (err.message && err.message.includes('401')) {
       window.location.href = '/login.html?redirect=mis-boletos';

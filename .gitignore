@@ -1,8 +1,9 @@
 node_modules/
 .env
-uploads/
-public/boletos/
-logs/
+.env.local
+.env.production
 .DS_Store
-.vscode/
+dist/
+build/
+uploads/
 *.log
