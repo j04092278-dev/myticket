@@ -3,3 +3,5 @@ node_modules/
 uploads/
 public/boletos/
 logs/
+.DS_Store
+*.log
