@@ -1,7 +1,7 @@
 {
   "name": "myticket",
   "version": "3.0.0",
-  "description": "Plataforma de venta de boletos con validación de INE y temática espacial",
+  "description": "Plataforma de venta de boletos con validación de INE",
   "main": "backend/src/server.js",
   "scripts": {
     "start": "node backend/src/server.js",
