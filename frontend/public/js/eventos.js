@@ -348,30 +348,21 @@ function mostrarModalValidacionINE(callback) {
   document.getElementById('ineFormModal').onsubmit = async (e) => {
     e.preventDefault();
     
-    // ===== LIMPIEZA DE DATOS ANTES DE ENVIAR =====
-    const numeroINE = document.getElementById('numINE').value.trim().toUpperCase().replace(/[-\s]/g, '');
-    const curp = document.getElementById('curpINE').value.trim().toUpperCase().replace(/[-\s]/g, '');
+    // ===== CORRECCIÓN: NO MODIFICAR EL CURP, SOLO LIMPIAR ESPACIOS =====
+    const numeroINE = document.getElementById('numINE').value.trim();
+    const curp = document.getElementById('curpINE').value.trim().toUpperCase();
     const nombreCompleto = document.getElementById('nombreINE').value.trim();
     const fechaNacimiento = document.getElementById('fechaNacINE').value;
-    const sexo = document.getElementById('sexoINE') ? document.getElementById('sexoINE').value : 'M';
-    const entidadEmision = document.getElementById('entidadEmisionINE') ? document.getElementById('entidadEmisionINE').value : '';
     
-    console.log('📤 Datos enviados desde frontend (validación INE):', { 
-      numeroINE, 
-      curp, 
-      nombreCompleto, 
-      fechaNacimiento,
-      sexo,
-      entidadEmision
-    });
+    console.log('📤 Datos enviados desde frontend (validación INE):', { numeroINE, curp, nombreCompleto, fechaNacimiento });
 
     const formData = new FormData();
     formData.append('numero_ine', numeroINE);
     formData.append('curp', curp);
     formData.append('nombre_completo', nombreCompleto);
     formData.append('fecha_nacimiento', fechaNacimiento);
-    formData.append('sexo', sexo);
-    formData.append('entidad_emision', entidadEmision);
+    formData.append('sexo', '');
+    formData.append('entidad_emision', '');
 
     const fotoINE = document.getElementById('fotoINE').files[0];
     const selfie = document.getElementById('selfieINE').files[0];

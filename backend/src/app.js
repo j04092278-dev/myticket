@@ -16,10 +16,13 @@ const pagoRoutes = require('./routes/pagoRoutes');
 
 const app = express();
 
-// ===== CORRECCIÓN PARA RENDER (trust proxy) =====
-// Render usa un proxy, pero el valor 'true' es demasiado permisivo.
-// Usamos el número de hops (1) o 'loopback' para mayor seguridad.
-app.set('trust proxy', 1);
+// ===== CORRECCIÓN PARA RENDER =====
+// Configurar trust proxy de forma segura: solo confiar en los proxies de Render
+// Render usa proxies como '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'
+app.set('trust proxy', (ip) => {
+  // Permitir solo IPs privadas (proxies internos de Render)
+  return ip === '127.0.0.1' || ip.startsWith('10.') || ip.startsWith('172.') || ip.startsWith('192.168.');
+});
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({ origin: 'http://localhost:3000', credentials: true }));
