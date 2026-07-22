@@ -353,17 +353,25 @@ function mostrarModalValidacionINE(callback) {
     const curp = document.getElementById('curpINE').value.trim().toUpperCase().replace(/[-\s]/g, '');
     const nombreCompleto = document.getElementById('nombreINE').value.trim();
     const fechaNacimiento = document.getElementById('fechaNacINE').value;
+    const sexo = document.getElementById('sexoINE') ? document.getElementById('sexoINE').value : 'M';
+    const entidadEmision = document.getElementById('entidadEmisionINE') ? document.getElementById('entidadEmisionINE').value : '';
     
-    console.log('📤 Datos enviados desde frontend (validación INE):', { numeroINE, curp, nombreCompleto, fechaNacimiento });
+    console.log('📤 Datos enviados desde frontend (validación INE):', { 
+      numeroINE, 
+      curp, 
+      nombreCompleto, 
+      fechaNacimiento,
+      sexo,
+      entidadEmision
+    });
 
     const formData = new FormData();
     formData.append('numero_ine', numeroINE);
     formData.append('curp', curp);
     formData.append('nombre_completo', nombreCompleto);
     formData.append('fecha_nacimiento', fechaNacimiento);
-    // Sexo y entidad_emision son opcionales, los dejamos vacíos si no existen
-    formData.append('sexo', '');
-    formData.append('entidad_emision', '');
+    formData.append('sexo', sexo);
+    formData.append('entidad_emision', entidadEmision);
 
     const fotoINE = document.getElementById('fotoINE').files[0];
     const selfie = document.getElementById('selfieINE').files[0];

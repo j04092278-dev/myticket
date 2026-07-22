@@ -16,9 +16,10 @@ const pagoRoutes = require('./routes/pagoRoutes');
 
 const app = express();
 
-// ===== CORRECCIÓN PARA RENDER =====
-// Habilita 'trust proxy' para que express-rate-limit funcione detrás de proxy
-app.set('trust proxy', true);
+// ===== CORRECCIÓN PARA RENDER (trust proxy) =====
+// Render usa un proxy, pero el valor 'true' es demasiado permisivo.
+// Usamos el número de hops (1) o 'loopback' para mayor seguridad.
+app.set('trust proxy', 1);
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({ origin: 'http://localhost:3000', credentials: true }));
