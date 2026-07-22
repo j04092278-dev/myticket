@@ -229,6 +229,7 @@ async function procederConCompra(eventoId, esPreventa, eventoNombre, precioUnita
   mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asiento, eventoNombre, precioUnitario);
 }
 
+// ========== VALIDACIÓN DE INE CON CÁMARA Y LIMPIEZA DE DATOS ==========
 function mostrarModalValidacionINE(callback) {
   const modal = document.createElement('div');
   modal.id = 'ineModal';
@@ -343,13 +344,27 @@ function mostrarModalValidacionINE(callback) {
     callback(false);
   };
 
+  // ===== FORMULARIO DE VALIDACIÓN CON LIMPIEZA DE DATOS =====
   document.getElementById('ineFormModal').onsubmit = async (e) => {
     e.preventDefault();
+    
+    // ===== LIMPIEZA DE DATOS ANTES DE ENVIAR =====
+    const numeroINE = document.getElementById('numINE').value.trim().toUpperCase().replace(/[-\s]/g, '');
+    const curp = document.getElementById('curpINE').value.trim().toUpperCase().replace(/[-\s]/g, '');
+    const nombreCompleto = document.getElementById('nombreINE').value.trim();
+    const fechaNacimiento = document.getElementById('fechaNacINE').value;
+    
+    console.log('📤 Datos enviados desde frontend (validación INE):', { numeroINE, curp, nombreCompleto, fechaNacimiento });
+
     const formData = new FormData();
-    formData.append('numero_ine', document.getElementById('numINE').value);
-    formData.append('curp', document.getElementById('curpINE').value);
-    formData.append('nombre_completo', document.getElementById('nombreINE').value);
-    formData.append('fecha_nacimiento', document.getElementById('fechaNacINE').value);
+    formData.append('numero_ine', numeroINE);
+    formData.append('curp', curp);
+    formData.append('nombre_completo', nombreCompleto);
+    formData.append('fecha_nacimiento', fechaNacimiento);
+    // Sexo y entidad_emision son opcionales, los dejamos vacíos si no existen
+    formData.append('sexo', '');
+    formData.append('entidad_emision', '');
+
     const fotoINE = document.getElementById('fotoINE').files[0];
     const selfie = document.getElementById('selfieINE').files[0];
     if (!fotoINE || !selfie) {
@@ -358,6 +373,7 @@ function mostrarModalValidacionINE(callback) {
     }
     formData.append('ineImage', fotoINE);
     formData.append('selfieImage', selfie);
+
     try {
       const res = await fetch('/api/ine/validar-con-imagen', {
         method: 'POST',
@@ -379,6 +395,7 @@ function mostrarModalValidacionINE(callback) {
   };
 }
 
+// ========== MODAL DE PAGO ==========
 function mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asiento, eventoNombre, precioUnitario) {
   const total = precioUnitario * cantidad;
   const modal = document.createElement('div');
@@ -535,6 +552,7 @@ async function iniciarCompra(eventoId, esPreventa, eventoNombre, precioUnitario)
   mostrarModalCompra(eventoId, esPreventa, eventoNombre, precioUnitario);
 }
 
+// ========== CARGAR EVENTOS ==========
 async function cargarEventos() {
   const container = document.getElementById('eventosContainer');
   container.innerHTML = '<div class="loader"><div class="spinner"></div><p>Cargando eventos...</p></div>';
@@ -598,6 +616,7 @@ async function cargarEventos() {
   }
 }
 
+// ========== INICIALIZACIÓN ==========
 loadUser();
 cargarEventos();
 if (typeof createStarField === 'function') createStarField();

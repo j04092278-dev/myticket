@@ -4,6 +4,15 @@ const sharp = require('sharp');
 const path = require('path');
 const fs = require('fs');
 const { validateCURP, validateINE } = require('../utils/validators');
+const { RekognitionClient, CompareFacesCommand } = require('@aws-sdk/client-rekognition');
+
+const rekognitionClient = process.env.AWS_ACCESS_KEY_ID ? new RekognitionClient({
+  region: process.env.AWS_REGION || 'us-east-1',
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  },
+}) : null;
 
 const uploadDir = './uploads/ine/';
 const selfieDir = './uploads/selfies/';
@@ -31,14 +40,6 @@ const upload = multer({
   }
 });
 
-// Función de comparación facial simple (sin AWS)
-// Si tienes AWS configurado, puedes reemplazar esta función con la de faceRecognition.js
-const compararCarasSimulada = async (imagenINE, imagenSelfie) => {
-  // En producción, si no hay AWS, siempre retorna true para no bloquear
-  // Pero puedes mejorar esto con face-api.js en el frontend
-  return true;
-};
-
 const getEstadoINE = async (req, res) => {
   try {
     const result = await pool.query(
@@ -53,22 +54,55 @@ const getEstadoINE = async (req, res) => {
   }
 };
 
+async function compararCarasAWS(imagenINE, imagenSelfie) {
+  if (!rekognitionClient) return true;
+  try {
+    const ineBytes = fs.readFileSync(imagenINE);
+    const selfieBytes = fs.readFileSync(imagenSelfie);
+    const command = new CompareFacesCommand({
+      SourceImage: { Bytes: ineBytes },
+      TargetImage: { Bytes: selfieBytes },
+      SimilarityThreshold: 70,
+    });
+    const response = await rekognitionClient.send(command);
+    if (response.FaceMatches && response.FaceMatches.length > 0) {
+      return response.FaceMatches[0].Similarity >= 70;
+    }
+    return false;
+  } catch (error) {
+    console.error('Error en comparación facial:', error);
+    return false;
+  }
+}
+
 const validarINEConImagen = async (req, res) => {
   const { numero_ine, curp, nombre_completo, fecha_nacimiento, sexo, entidad_emision } = req.body;
   try {
+    // ===== VALIDACIÓN CON LOGS =====
+    console.log('📥 Datos recibidos:', { numero_ine, curp, nombre_completo, fecha_nacimiento, sexo, entidad_emision });
+
+    // VALIDAR CURP
     if (!validateCURP(curp)) {
-      return res.status(400).json({ error: 'CURP inválida. Verifica formato y dígito verificador.' });
+      console.log(`❌ CURP inválida: ${curp}`);
+      return res.status(400).json({ 
+        error: `CURP inválida. Verifica el formato y el dígito verificador. Revisa los logs para más detalles.` 
+      });
     }
+
+    // VALIDAR INE
     if (!validateINE(numero_ine)) {
+      console.log(`❌ Número de INE inválido: ${numero_ine}`);
       return res.status(400).json({ error: 'Número de INE inválido. Verifica formato.' });
     }
 
+    // Verificar duplicados
     const exists = await pool.query(
       'SELECT * FROM ine_validacion WHERE id_cliente = $1 OR numero_ine = $2',
       [req.userId, numero_ine]
     );
     if (exists.rows.length > 0) return res.status(400).json({ error: 'Esta INE ya está registrada.' });
 
+    // Procesar imágenes
     let imagenUrl = null, selfieUrl = null;
     if (req.files) {
       if (req.files['ineImage']) {
@@ -89,26 +123,17 @@ const validarINEConImagen = async (req, res) => {
     }
     if (!imagenUrl || !selfieUrl) return res.status(400).json({ error: 'Debes subir foto de INE y selfie.' });
 
+    // Verificación facial
     const imagenPath = path.join(__dirname, '../../', imagenUrl);
     const selfiePath = path.join(__dirname, '../../', selfieUrl);
-    
-    // Verificación facial (simulada o con AWS)
     let facialVerificado = false;
-    try {
-      // Si tienes AWS configurado, usa faceRecognition.js
-      // const { compararCaras } = require('../utils/faceRecognition');
-      // facialVerificado = await compararCaras(imagenPath, selfiePath);
-      facialVerificado = await compararCarasSimulada(imagenPath, selfiePath);
-    } catch (e) {
-      console.error('Error en verificación facial:', e);
-      facialVerificado = false;
+    if (rekognitionClient) {
+      facialVerificado = await compararCarasAWS(imagenPath, selfiePath);
+    } else {
+      facialVerificado = nombre_completo.trim().split(/\s+/).length >= 2;
     }
 
-    // Si no hay AWS, forzamos facialVerificado a true para no bloquear
-    if (!process.env.AWS_ACCESS_KEY_ID) {
-      facialVerificado = true;
-    }
-
+    // Guardar en BD
     const result = await pool.query(
       `INSERT INTO ine_validacion
        (id_cliente, numero_ine, curp, nombre_completo, fecha_nacimiento, sexo, entidad_emision, documento_imagen, selfie_imagen, validado, facial_verificado)

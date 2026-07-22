@@ -16,8 +16,9 @@ const pagoRoutes = require('./routes/pagoRoutes');
 
 const app = express();
 
-// ========== CORREGIDO: Confiar en el proxy de Render ==========
-app.set('trust proxy', 1);  // Esto soluciona el error de rate-limit
+// ===== CORRECCIÓN PARA RENDER =====
+// Habilita 'trust proxy' para que express-rate-limit funcione detrás de proxy
+app.set('trust proxy', true);
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({ origin: 'http://localhost:3000', credentials: true }));
