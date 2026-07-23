@@ -1,9 +1,10 @@
 /**
  * ============================================================
- * VALIDACIÓN DE CURP (México) - SOLO FORMATO (18 caracteres)
+ * VALIDACIÓN DE CURP (México) - SOLO LONGITUD Y CARACTERES
  * ============================================================
- * Acepta: 4 letras + 6 dígitos + 6 alfanuméricos + 2 dígitos (o X)
- * Ejemplo válido: MAHJ061219HDFRRNA6 (18 caracteres)
+ * Solo verifica que tenga 18 caracteres y que todos sean
+ * letras (A-Z, Ñ) o números (0-9).
+ * NO valida formato posicional ni dígito verificador.
  * ============================================================
  */
 function validateCURP(curp) {
@@ -23,19 +24,16 @@ function validateCURP(curp) {
     return false;
   }
 
-  // Validar formato: 4 letras, 6 dígitos, 6 alfanuméricos, 2 dígitos (0-9 o X)
-  const regex = /^[A-ZÑ]{4}[0-9]{6}[A-Z0-9]{6}[0-9X]{2}$/;
-  const esValido = regex.test(clean);
+  // Validar que todos los caracteres sean letras (A-Z, Ñ) o números (0-9)
+  const esValido = /^[A-ZÑ0-9]{18}$/.test(clean);
 
   if (esValido) {
-    console.log('✅ CURP con formato válido (18 caracteres)');
+    console.log('✅ CURP con formato válido (18 caracteres alfanuméricos)');
   } else {
-    console.log('❌ Formato de CURP inválido');
-    console.log('   Requisitos: 4 letras, 6 números, 6 alfanuméricos, 2 dígitos (0-9 o X)');
-    console.log('   Ejemplo: MAHJ061219HDFRRNA6');
+    console.log('❌ Formato de CURP inválido: contiene caracteres no permitidos');
   }
 
-  return esValido; // Solo formato, SIN dígito verificador
+  return esValido;
 }
 
 /**
@@ -57,7 +55,7 @@ function validateINE(numero) {
     return false;
   }
 
- const regex = /^[A-ZÑ]{4}[0-9]{6}[A-Z0-9]{8}$/;
+  const regex = /^[0-9]{4}[A-Z]{3}[0-9]{6}[A-Z][0-9]{2}$/;
   if (!regex.test(clean)) {
     console.log('❌ Formato INE inválido');
     return false;
