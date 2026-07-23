@@ -1,6 +1,7 @@
 let currentUser = null;
 let countdownIntervals = [];
 
+// ========== CARGA DE USUARIO ==========
 async function loadUser() {
   try {
     const res = await Auth.getCurrentUser();
@@ -27,14 +28,13 @@ async function loadUser() {
   }
 }
 
-// Cerrar sesión
 document.getElementById('logoutBtn').onclick = async () => {
   await Auth.logout();
-  // Limpiar usuario y redirigir
   currentUser = null;
   window.location.href = '/';
 };
 
+// ========== VERIFICACIÓN DE INE ==========
 async function verificarINE() {
   try {
     const res = await API.request('/ine/estado');
@@ -44,6 +44,7 @@ async function verificarINE() {
   }
 }
 
+// ========== CUENTA REGRESIVA ==========
 function getTimeRemaining(targetDate) {
   const now = new Date().getTime();
   const target = new Date(targetDate).getTime();
@@ -145,6 +146,7 @@ function iniciarCuentasRegresivas() {
   });
 }
 
+// ========== MODAL COMPRA ==========
 function mostrarModalCompra(eventoId, esPreventa, eventoNombre, precioUnitario) {
   const modal = document.createElement('div');
   modal.id = 'compraModal';
@@ -206,6 +208,7 @@ function mostrarModalCompra(eventoId, esPreventa, eventoNombre, precioUnitario) 
   };
 }
 
+// ========== PROCEDER CON COMPRA ==========
 async function procederConCompra(eventoId, esPreventa, eventoNombre, precioUnitario, cantidad, zona, asiento) {
   if (!currentUser) {
     showToast('Inicia sesión para comprar', 'warning');
@@ -237,6 +240,7 @@ async function procederConCompra(eventoId, esPreventa, eventoNombre, precioUnita
   mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asiento, eventoNombre, precioUnitario);
 }
 
+// ========== VALIDACIÓN DE INE CON CAMPO SEXO VISIBLE ==========
 function mostrarModalValidacionINE(callback) {
   const modal = document.createElement('div');
   modal.id = 'ineModal';
@@ -283,19 +287,10 @@ function mostrarModalValidacionINE(callback) {
             <option value="F" style="color:white; background:#1a1a1a;">Femenino</option>
           </select>
         </div>
-        
-        <!-- ===== FOTO DE INE CON CÁMARA ===== -->
         <div style="margin-bottom: 1rem;">
           <label style="color: #ff3333; display: block; margin-bottom: 0.3rem;"><i class="fas fa-id-card"></i> Foto de tu INE</label>
-          <input type="file" id="fotoINE" accept="image/*" required style="width:100%; padding:0.6rem; background:rgba(255,255,255,0.05); border:1px dashed #ff0000; border-radius:0.8rem; color:white; cursor:pointer; margin-bottom:0.5rem;">
-          <button type="button" id="ineCamBtn" style="background:rgba(255,0,0,0.2); border:1px solid #ff0000; color:#ff3333; padding:0.5rem 1rem; border-radius:0.8rem; cursor:pointer; width:100%;">
-            <i class="fas fa-camera"></i> Tomar foto de INE
-          </button>
-          <video id="ineVideo" style="width:100%; max-height:200px; display:none; margin-top:0.5rem; border-radius:0.5rem; background:#000;" autoplay></video>
-          <button type="button" id="ineCaptureBtn" style="display:none; background:#ff0000; color:white; border:none; padding:0.3rem 1rem; border-radius:0.5rem; cursor:pointer; margin-top:0.5rem; width:100%;">📸 Capturar INE</button>
+          <input type="file" id="fotoINE" accept="image/*" required style="width:100%; padding:0.6rem; background:rgba(255,255,255,0.05); border:1px dashed #ff0000; border-radius:0.8rem; color:white; cursor:pointer;">
         </div>
-        
-        <!-- ===== SELFIE CON CÁMARA ===== -->
         <div style="margin-bottom: 1.5rem;">
           <label style="color: #ff3333; display: block; margin-bottom: 0.3rem;"><i class="fas fa-camera"></i> Selfie (foto de tu cara)</label>
           <input type="file" id="selfieINE" accept="image/*" required style="width:100%; padding:0.6rem; background:rgba(255,255,255,0.05); border:1px dashed #ff0000; border-radius:0.8rem; color:white; cursor:pointer; margin-bottom:0.5rem;">
@@ -305,7 +300,6 @@ function mostrarModalValidacionINE(callback) {
           <video id="selfieVideo" style="width:100%; max-height:200px; display:none; margin-top:0.5rem; border-radius:0.5rem; background:#000;" autoplay></video>
           <button type="button" id="selfieCaptureBtn" style="display:none; background:#ff0000; color:white; border:none; padding:0.3rem 1rem; border-radius:0.5rem; cursor:pointer; margin-top:0.5rem; width:100%;">📸 Capturar selfie</button>
         </div>
-        
         <button type="submit" style="background:linear-gradient(135deg, #cc0000, #ff0000); border:none; padding:0.8rem; border-radius:2rem; font-weight:bold; font-size:1.1rem; color:white; cursor:pointer; width:100%; box-shadow:0 0 20px rgba(255,0,0,0.3); transition:0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
           ✅ Validar y Comprar
         </button>
@@ -317,86 +311,38 @@ function mostrarModalValidacionINE(callback) {
   `;
   document.body.appendChild(modal);
 
-  // ===== CÁMARA PARA INE =====
-  let ineStream = null;
-  const ineVideo = document.getElementById('ineVideo');
-  const ineCamBtn = document.getElementById('ineCamBtn');
-  const ineCaptureBtn = document.getElementById('ineCaptureBtn');
-  const ineInput = document.getElementById('fotoINE');
-
-  ineCamBtn.onclick = async () => {
-    if (ineVideo.style.display === 'none') {
-      try {
-        ineStream = await navigator.mediaDevices.getUserMedia({ video: true });
-        ineVideo.srcObject = ineStream;
-        ineVideo.style.display = 'block';
-        ineCaptureBtn.style.display = 'block';
-        ineCamBtn.textContent = 'Ocultar cámara';
-      } catch(e) {
-        showToast('Error al acceder a la cámara. Asegúrate de dar permisos.', 'error');
-      }
-    } else {
-      if (ineStream) ineStream.getTracks().forEach(t => t.stop());
-      ineVideo.style.display = 'none';
-      ineCaptureBtn.style.display = 'none';
-      ineCamBtn.textContent = 'Tomar foto de INE';
-    }
-  };
-
-  ineCaptureBtn.onclick = () => {
-    if (!ineStream) { showToast('Activa la cámara primero.', 'warning'); return; }
-    const canvas = document.createElement('canvas');
-    canvas.width = ineVideo.videoWidth || 640;
-    canvas.height = ineVideo.videoHeight || 480;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(ineVideo, 0, 0, canvas.width, canvas.height);
-    canvas.toBlob((blob) => {
-      if (!blob) { showToast('Error al capturar', 'error'); return; }
-      const file = new File([blob], 'ine_foto.jpg', { type: 'image/jpeg' });
-      const dt = new DataTransfer();
-      dt.items.add(file);
-      ineInput.files = dt.files;
-      showToast('✅ Foto de INE capturada', 'success');
-      if (ineStream) ineStream.getTracks().forEach(t => t.stop());
-      ineVideo.style.display = 'none';
-      ineCaptureBtn.style.display = 'none';
-      ineCamBtn.textContent = 'Tomar foto de INE';
-    }, 'image/jpeg', 0.9);
-  };
-
-  // ===== CÁMARA PARA SELFIE =====
-  let selfieStream = null;
-  const selfieVideo = document.getElementById('selfieVideo');
-  const selfieCamBtn = document.getElementById('selfieCamBtn');
-  const selfieCaptureBtn = document.getElementById('selfieCaptureBtn');
+  let stream = null;
+  const video = document.getElementById('selfieVideo');
+  const camBtn = document.getElementById('selfieCamBtn');
+  const captureBtn = document.getElementById('selfieCaptureBtn');
   const selfieInput = document.getElementById('selfieINE');
 
-  selfieCamBtn.onclick = async () => {
-    if (selfieVideo.style.display === 'none') {
+  camBtn.onclick = async () => {
+    if (video.style.display === 'none') {
       try {
-        selfieStream = await navigator.mediaDevices.getUserMedia({ video: true });
-        selfieVideo.srcObject = selfieStream;
-        selfieVideo.style.display = 'block';
-        selfieCaptureBtn.style.display = 'block';
-        selfieCamBtn.textContent = 'Ocultar cámara';
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+        video.style.display = 'block';
+        captureBtn.style.display = 'block';
+        camBtn.textContent = 'Ocultar cámara';
       } catch(e) {
         showToast('Error al acceder a la cámara. Asegúrate de dar permisos.', 'error');
       }
     } else {
-      if (selfieStream) selfieStream.getTracks().forEach(t => t.stop());
-      selfieVideo.style.display = 'none';
-      selfieCaptureBtn.style.display = 'none';
-      selfieCamBtn.textContent = 'Tomar selfie con cámara';
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      video.style.display = 'none';
+      captureBtn.style.display = 'none';
+      camBtn.textContent = 'Tomar selfie con cámara';
     }
   };
 
-  selfieCaptureBtn.onclick = () => {
-    if (!selfieStream) { showToast('Activa la cámara primero.', 'warning'); return; }
+  captureBtn.onclick = () => {
+    if (!stream) { showToast('Activa la cámara primero.', 'warning'); return; }
     const canvas = document.createElement('canvas');
-    canvas.width = selfieVideo.videoWidth || 640;
-    canvas.height = selfieVideo.videoHeight || 480;
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
     const ctx = canvas.getContext('2d');
-    ctx.drawImage(selfieVideo, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     canvas.toBlob((blob) => {
       if (!blob) { showToast('Error al capturar', 'error'); return; }
       const file = new File([blob], 'selfie.jpg', { type: 'image/jpeg' });
@@ -404,20 +350,20 @@ function mostrarModalValidacionINE(callback) {
       dt.items.add(file);
       selfieInput.files = dt.files;
       showToast('✅ Selfie capturada', 'success');
-      if (selfieStream) selfieStream.getTracks().forEach(t => t.stop());
-      selfieVideo.style.display = 'none';
-      selfieCaptureBtn.style.display = 'none';
-      selfieCamBtn.textContent = 'Tomar selfie con cámara';
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      video.style.display = 'none';
+      captureBtn.style.display = 'none';
+      camBtn.textContent = 'Tomar selfie con cámara';
     }, 'image/jpeg', 0.9);
   };
 
   document.getElementById('closeINE').onclick = () => {
-    if (ineStream) ineStream.getTracks().forEach(t => t.stop());
-    if (selfieStream) selfieStream.getTracks().forEach(t => t.stop());
+    if (stream) stream.getTracks().forEach(t => t.stop());
     modal.remove();
     callback(false);
   };
 
+  // ===== FORMULARIO DE VALIDACIÓN CON LIMPIEZA Y SEXO =====
   document.getElementById('ineFormModal').onsubmit = async (e) => {
     e.preventDefault();
     
@@ -461,8 +407,7 @@ function mostrarModalValidacionINE(callback) {
       if (res.ok && data.success) {
         showToast('✅ INE validado correctamente. Ahora puedes comprar.', 'success');
         modal.remove();
-        if (ineStream) ineStream.getTracks().forEach(t => t.stop());
-        if (selfieStream) selfieStream.getTracks().forEach(t => t.stop());
+        if (stream) stream.getTracks().forEach(t => t.stop());
         callback(true);
       } else {
         showToast('❌ ' + (data.error || 'Error al validar'), 'error');
@@ -473,6 +418,7 @@ function mostrarModalValidacionINE(callback) {
   };
 }
 
+// ========== MODAL PAGO ==========
 function mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asiento, eventoNombre, precioUnitario) {
   const total = precioUnitario * cantidad;
   const modal = document.createElement('div');
@@ -570,6 +516,7 @@ function mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asie
   };
 }
 
+// ========== MODAL BOLETO ==========
 function mostrarBoletoModal(boletoHTML, urlDescarga) {
   const modal = document.createElement('div');
   modal.id = 'boletoModal';
@@ -620,6 +567,7 @@ function mostrarBoletoModal(boletoHTML, urlDescarga) {
   });
 }
 
+// ========== INICIAR COMPRA ==========
 async function iniciarCompra(eventoId, esPreventa, eventoNombre, precioUnitario) {
   if (!currentUser) {
     showToast('Inicia sesión para comprar', 'warning');
@@ -629,8 +577,10 @@ async function iniciarCompra(eventoId, esPreventa, eventoNombre, precioUnitario)
   mostrarModalCompra(eventoId, esPreventa, eventoNombre, precioUnitario);
 }
 
+// ========== CARGAR EVENTOS ==========
 async function cargarEventos() {
   const container = document.getElementById('eventosContainer');
+  if (!container) return;
   container.innerHTML = '<div class="loader"><div class="spinner"></div><p>Cargando eventos...</p></div>';
   try {
     const eventos = await API.getEventos();
@@ -644,12 +594,20 @@ async function cargarEventos() {
       const precioNormal = e.precio_normal;
       const precioPreventa = e.precio_preventa || e.precio_normal;
       const badge = e.es_preventa ? '<span class="badge-preventa">PREVENTA</span>' : '';
-      const imagenHtml = e.imagen_url ? 
-  `<img src="${e.imagen_url}" style="width:100%; height:180px; object-fit:cover;">` :
-  '<div style="width:100%; height:180px; background:rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center;"><i class="fas fa-image" style="color:#666; font-size:3rem;"></i></div>';
+      
+      // ===== CORRECCIÓN: Mostrar imagen desde BD correctamente =====
+      let imagenHtml = '';
+      if (e.imagen_url) {
+        imagenHtml = `<img src="${e.imagen_url}" alt="${e.nombre_evento}" style="width:100%; height:180px; object-fit:cover; border-radius:8px 8px 0 0;">`;
+      } else if (e.tiene_imagen) {
+        imagenHtml = `<img src="/api/eventos/imagen/${e.id_evento}" alt="${e.nombre_evento}" style="width:100%; height:180px; object-fit:cover; border-radius:8px 8px 0 0;">`;
+      } else {
+        imagenHtml = `<div style="width:100%; height:180px; background:rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center; border-radius:8px 8px 0 0;"><i class="fas fa-image" style="color:#666; font-size:3rem;"></i></div>`;
+      }
+
       html += `
         <div class="evento-card" data-event-id="${e.id_evento}" data-event-date="${e.fecha_evento}" data-is-preventa="${e.es_preventa}" data-precio="${precioNormal}" data-precio-preventa="${precioPreventa}" data-preventa-inicio="${e.preventa_inicio || ''}" data-preventa-fin="${e.preventa_fin || ''}">
-          ${imagen}
+          ${imagenHtml}
           <div class="evento-info">
             <h3 class="evento-titulo">${e.nombre_evento} ${badge}</h3>
             <p><i class="fas fa-map-marker-alt"></i> ${e.ubicacion}</p>
@@ -689,11 +647,13 @@ async function cargarEventos() {
       };
     });
   } catch (err) {
+    console.error('❌ Error en cargarEventos:', err);
     showToast('Error al cargar eventos: ' + err.message, 'error');
     container.innerHTML = `<p style="text-align:center; color:var(--red-light);">❌ Error al cargar eventos: ${err.message}</p>`;
   }
 }
 
+// ========== INICIALIZACIÓN ==========
 loadUser();
 cargarEventos();
 if (typeof createStarField === 'function') createStarField();
