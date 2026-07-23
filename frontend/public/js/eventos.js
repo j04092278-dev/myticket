@@ -1,6 +1,7 @@
 let currentUser = null;
 let countdownIntervals = [];
 
+// ========== CARGA DE USUARIO ==========
 async function loadUser() {
   try {
     const res = await Auth.getCurrentUser();
@@ -24,6 +25,7 @@ document.getElementById('logoutBtn').onclick = async () => {
   location.href = '/';
 };
 
+// ========== VERIFICACIÓN DE INE ==========
 async function verificarINE() {
   try {
     const res = await API.request('/ine/estado');
@@ -33,6 +35,7 @@ async function verificarINE() {
   }
 }
 
+// ========== CUENTA REGRESIVA ==========
 function getTimeRemaining(targetDate) {
   const now = new Date().getTime();
   const target = new Date(targetDate).getTime();
@@ -134,6 +137,7 @@ function iniciarCuentasRegresivas() {
   });
 }
 
+// ========== MODAL COMPRA ==========
 function mostrarModalCompra(eventoId, esPreventa, eventoNombre, precioUnitario) {
   const modal = document.createElement('div');
   modal.id = 'compraModal';
@@ -195,6 +199,7 @@ function mostrarModalCompra(eventoId, esPreventa, eventoNombre, precioUnitario) 
   };
 }
 
+// ========== PROCEDER CON COMPRA ==========
 async function procederConCompra(eventoId, esPreventa, eventoNombre, precioUnitario, cantidad, zona, asiento) {
   if (!currentUser) {
     showToast('Inicia sesión para comprar', 'warning');
@@ -226,6 +231,7 @@ async function procederConCompra(eventoId, esPreventa, eventoNombre, precioUnita
   mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asiento, eventoNombre, precioUnitario);
 }
 
+// ========== VALIDACIÓN DE INE ==========
 function mostrarModalValidacionINE(callback) {
   const modal = document.createElement('div');
   modal.id = 'ineModal';
@@ -249,12 +255,12 @@ function mostrarModalValidacionINE(callback) {
       <p style="color: #aaa; text-align: center; margin-bottom: 1.5rem;">Para comprar boletos, debes validar tu identidad con INE y selfie.</p>
       <form id="ineFormModal" enctype="multipart/form-data">
         <div style="margin-bottom: 1rem;">
-          <label style="color: #ccc; display: block; margin-bottom: 0.3rem;">Número de INE</label>
-          <input type="text" id="numINE" placeholder="Ej: 1234ABC123456789" required style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem;">
+          <label style="color: #ccc; display: block; margin-bottom: 0.3rem;">Número de INE (Clave de Elector)</label>
+          <input type="text" id="numINE" placeholder="Ej: MRHRJN06121909H900" required style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem;">
         </div>
         <div style="margin-bottom: 1rem;">
           <label style="color: #ccc; display: block; margin-bottom: 0.3rem;">CURP</label>
-          <input type="text" id="curpINE" placeholder="Ej: GODE561231HDFRRL09" required style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem;">
+          <input type="text" id="curpINE" placeholder="Ej: MAHJ061219HDFRRNA6" required style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem;">
         </div>
         <div style="margin-bottom: 1rem;">
           <label style="color: #ccc; display: block; margin-bottom: 0.3rem;">Nombre completo</label>
@@ -340,11 +346,11 @@ function mostrarModalValidacionINE(callback) {
     callback(false);
   };
 
-  // ===== FORMULARIO DE VALIDACIÓN =====
+  // ===== FORMULARIO DE VALIDACIÓN CON LIMPIEZA =====
   document.getElementById('ineFormModal').onsubmit = async (e) => {
     e.preventDefault();
     
-    // Limpieza de datos
+    // ===== LIMPIEZA DE DATOS (SOLO ALFANUMÉRICOS) =====
     const numeroINE = document.getElementById('numINE').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
     const curp = document.getElementById('curpINE').value.trim().toUpperCase().replace(/[^A-ZÑ0-9]/g, '');
     const nombreCompleto = document.getElementById('nombreINE').value.trim();
@@ -390,6 +396,7 @@ function mostrarModalValidacionINE(callback) {
   };
 }
 
+// ========== MODAL PAGO ==========
 function mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asiento, eventoNombre, precioUnitario) {
   const total = precioUnitario * cantidad;
   const modal = document.createElement('div');
@@ -487,6 +494,7 @@ function mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asie
   };
 }
 
+// ========== MODAL BOLETO ==========
 function mostrarBoletoModal(boletoHTML, urlDescarga) {
   const modal = document.createElement('div');
   modal.id = 'boletoModal';
@@ -537,6 +545,7 @@ function mostrarBoletoModal(boletoHTML, urlDescarga) {
   });
 }
 
+// ========== INICIAR COMPRA ==========
 async function iniciarCompra(eventoId, esPreventa, eventoNombre, precioUnitario) {
   if (!currentUser) {
     showToast('Inicia sesión para comprar', 'warning');
@@ -546,6 +555,7 @@ async function iniciarCompra(eventoId, esPreventa, eventoNombre, precioUnitario)
   mostrarModalCompra(eventoId, esPreventa, eventoNombre, precioUnitario);
 }
 
+// ========== CARGAR EVENTOS ==========
 async function cargarEventos() {
   const container = document.getElementById('eventosContainer');
   container.innerHTML = '<div class="loader"><div class="spinner"></div><p>Cargando eventos...</p></div>';
@@ -609,6 +619,7 @@ async function cargarEventos() {
   }
 }
 
+// ========== INICIALIZACIÓN ==========
 loadUser();
 cargarEventos();
 if (typeof createStarField === 'function') createStarField();

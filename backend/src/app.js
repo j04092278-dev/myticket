@@ -16,8 +16,7 @@ const pagoRoutes = require('./routes/pagoRoutes');
 
 const app = express();
 
-// ===== CORRECCIÓN DEFINITIVA PARA RENDER =====
-// 'loopback' permite solo conexiones locales, evitando el error de rate limit
+// ===== CORRECCIÓN PARA RENDER =====
 app.set('trust proxy', 'loopback');
 
 app.use(helmet({ contentSecurityPolicy: false }));
