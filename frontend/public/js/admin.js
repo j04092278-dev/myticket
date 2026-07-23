@@ -16,7 +16,12 @@ async function checkAdmin() {
         window.location.href = '/admin-login.html';
         return;
       }
-      cargarListaEventos();
+      cargarListaEventos()
+     // Dentro de cargarListaEventos, en el html del evento-card:
+
+const imagenHtml = e.imagen_url ? 
+  `<img src="${e.imagen_url}" alt="${e.nombre_evento}" style="width:100%; height:150px; object-fit:cover; border-radius:8px;">` : 
+  '<div style="width:100%; height:150px; background:rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center; border-radius:8px;"><i class="fas fa-image" style="color:#666; font-size:2rem;"></i></div>'; ;
       cargarEstadisticas();
     } else {
       window.location.href = '/admin-login.html';

@@ -633,7 +633,9 @@ async function cargarEventos() {
       const precioNormal = e.precio_normal;
       const precioPreventa = e.precio_preventa || e.precio_normal;
       const badge = e.es_preventa ? '<span class="badge-preventa">PREVENTA</span>' : '';
-      const imagen = e.imagen_url ? `<img src="${e.imagen_url}" style="width:100%; height:180px; object-fit:cover;">` : '<div class="evento-imagen"><i class="fas fa-rocket"></i></div>';
+      const imagenHtml = e.imagen_url ? 
+  `<img src="${e.imagen_url}" style="width:100%; height:180px; object-fit:cover;">` :
+  '<div style="width:100%; height:180px; background:rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center;"><i class="fas fa-image" style="color:#666; font-size:3rem;"></i></div>';
       html += `
         <div class="evento-card" data-event-id="${e.id_evento}" data-event-date="${e.fecha_evento}" data-is-preventa="${e.es_preventa}" data-precio="${precioNormal}" data-precio-preventa="${precioPreventa}" data-preventa-inicio="${e.preventa_inicio || ''}" data-preventa-fin="${e.preventa_fin || ''}">
           ${imagen}
