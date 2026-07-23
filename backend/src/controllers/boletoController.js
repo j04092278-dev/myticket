@@ -4,23 +4,17 @@ const QRCode = require('qrcode');
 const path = require('path');
 const fs = require('fs');
 const { encrypt } = require('../utils/encrypt');
-const { sendTicketEmail } = require('../utils/email');
 
 const generarBoletoPersonalizado = async (data) => {
-  const { codigo, evento, nombre_usuario, fecha, ubicacion, zona, asiento, precio, imagen_url, eventoId } = data;
-  const qrBase64 = await QRCode.toDataURL(JSON.stringify({ codigo, evento, usuario: nombre_usuario }));
-
-  // Obtener la imagen de la base de datos si existe
-  let imagenData = null;
-  if (eventoId) {
-    try {
-      const result = await pool.query('SELECT imagen_data FROM evento WHERE id_evento = $1', [eventoId]);
-      if (result.rows.length > 0 && result.rows[0].imagen_data) {
-        imagenData = result.rows[0].imagen_data;
-      }
-    } catch (e) {}
-  }
-
+  const { codigo, evento, nombre_usuario, fecha, ubicacion, zona, asiento, precio, imagen_url } = data;
+  
+  const qrBase64 = await QRCode.toDataURL(JSON.stringify({ 
+    codigo, 
+    evento, 
+    usuario: nombre_usuario,
+    fecha: fecha
+  }));
+  
   const colors = {
     primary: '#ff0000',
     secondary: '#cc0000',
@@ -30,38 +24,23 @@ const generarBoletoPersonalizado = async (data) => {
     text: '#FFFFFF',
     textSecondary: '#9CA3AF',
   };
-
+  
   let fondoStyle = `background: linear-gradient(145deg, ${colors.dark}, ${colors.bg});`;
-  let imagenStyle = '';
-
-  if (imagenData) {
-    const base64Image = `data:image/jpeg;base64,${imagenData.toString('base64')}`;
-    fondoStyle = `background: ${colors.dark}; position: relative;`;
-    imagenStyle = `
-      <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-           background-image: url('${base64Image}'); background-size: cover; background-position: center; 
-           opacity: 0.3; z-index: 0; border-radius: 16px;"></div>
-    `;
-  } else if (imagen_url) {
-    fondoStyle = `background: ${colors.dark}; position: relative;`;
-    imagenStyle = `
-      <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-           background-image: url('${imagen_url}'); background-size: cover; background-position: center; 
-           opacity: 0.3; z-index: 0; border-radius: 16px;"></div>
-    `;
+  if (imagen_url) {
+    fondoStyle = `background-image: url('${imagen_url}'); background-size: cover; background-position: center; position: relative;`;
   }
-
+  
   const html = `
-    <div style="${fondoStyle} color: ${colors.text}; padding: 24px; border-radius: 16px; border: 2px solid ${colors.primary}; max-width: 400px; margin: 0 auto; font-family: 'Poppins', sans-serif; box-shadow: 0 0 40px rgba(255,0,0,0.3); position: relative; overflow: hidden;">
-      ${imagenStyle}
+    <div style="${fondoStyle} color: ${colors.text}; padding: 24px; border-radius: 16px; border: 2px solid ${colors.primary}; max-width: 400px; margin: 0 auto; font-family: 'Poppins', sans-serif; box-shadow: 0 0 40px rgba(255,0,0,0.3); position: relative; overflow: hidden; ${imagen_url ? 'min-height: 450px; display: flex; flex-direction: column; justify-content: center;' : ''}">
+      ${imagen_url ? `<div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10,10,10,0.7); z-index: 0;"></div>` : ''}
       <div style="position: relative; z-index: 1;">
         <div style="text-align: center; margin-bottom: 15px;">
-          <h2 style="color: ${colors.light}; font-size: 1.8rem; margin: 0; font-family: 'Orbitron', sans-serif;">🎫 MyTicket</h2>
+          <h2 style="color: ${colors.light}; font-size: 1.8rem; margin: 0; font-family: 'Orbitron', sans-serif;">🚀 MyTicket</h2>
           <div style="border-bottom: 2px dashed ${colors.primary}; margin: 10px 0;"></div>
         </div>
         <div style="padding: 10px;">
           <p><strong style="color: ${colors.light};">Evento:</strong> ${evento}</p>
-          <p><strong style="color: ${colors.light};">Fecha:</strong> ${new Date(fecha).toLocaleDateString()}</p>
+          <p><strong style="color: ${colors.light};">Fecha:</strong> ${new Date(fecha).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}</p>
           <p><strong style="color: ${colors.light};">Ubicación:</strong> ${ubicacion}</p>
           <p><strong style="color: ${colors.light};">Zona:</strong> ${zona || 'General'} | <strong>Asiento:</strong> ${asiento || 'Libre'}</p>
           <p><strong style="color: ${colors.light};">Comprador:</strong> ${nombre_usuario}</p>
@@ -77,12 +56,13 @@ const generarBoletoPersonalizado = async (data) => {
       </div>
     </div>
   `;
-
+  
   const fileName = `boleto_${codigo}.html`;
   const filePath = path.join(__dirname, '../../public/boletos', fileName);
-  if (!fs.existsSync(path.dirname(filePath))) fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  if (!fs.existsSync(path.dirname(filePath))) {
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  }
   fs.writeFileSync(filePath, html);
-
   return { html, filePath: `/boletos/${fileName}` };
 };
 
@@ -91,13 +71,12 @@ const comprarBoletos = async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-
+    
     const evento = await client.query('SELECT * FROM evento WHERE id_evento = $1 FOR UPDATE', [eventoId]);
     if (evento.rows.length === 0) throw new Error('Evento no existe');
     const eventoData = evento.rows[0];
     if (eventoData.boletos_disponibles < cantidad) throw new Error('Boletos insuficientes');
 
-    // Verificar INE y verificación facial
     const ineCheck = await client.query(
       'SELECT validado, facial_verificado FROM ine_validacion WHERE id_cliente = $1',
       [req.userId]
@@ -114,20 +93,27 @@ const comprarBoletos = async (req, res) => {
       : eventoData.precio_normal;
 
     const codigoUnico = crypto.randomBytes(8).toString('hex').toUpperCase();
-    const qrCode = await QRCode.toDataURL(JSON.stringify({ codigo: codigoUnico, evento: eventoData.nombre_evento, usuario: req.userEmail }));
+    const qrCode = await QRCode.toDataURL(JSON.stringify({ 
+      codigo: codigoUnico, 
+      evento: eventoData.nombre_evento, 
+      usuario: req.userEmail 
+    }));
 
     const boleto = await client.query(
       `INSERT INTO boletos (id_evento, id_cliente, zona, asiento, codigo_unico, qr_codigo, estatus, tipo_precio)
        VALUES ($1,$2,$3,$4,$5,$6,'activo',$7) RETURNING *`,
-      [eventoId, req.userId, zona, asiento, codigoUnico, qrCode, tipoPrecio || 'normal']
+      [eventoId, req.userId, zona || 'General', asiento || 'Libre', codigoUnico, qrCode, tipoPrecio || 'normal']
     );
 
     await client.query('UPDATE evento SET boletos_disponibles = boletos_disponibles - $1 WHERE id_evento = $2', [cantidad, eventoId]);
 
+    // ===== CORRECCIÓN: Referencia más corta (8 caracteres) =====
+    const referencia = `REF${codigoUnico.slice(0,6)}`; // Ej: REFABC123 (10 caracteres)
+    
     await client.query(
       `INSERT INTO venta (id_cliente, id_evento, id_boleto, fecha_venta, hora_venta, precio_pagado, referencia_boleto)
        VALUES ($1,$2,$3,CURRENT_DATE,CURRENT_TIME,$4,$5)`,
-      [req.userId, eventoId, boleto.rows[0].id_boleto, precioUnitario * cantidad, `REF-${codigoUnico.slice(0,8)}`]
+      [req.userId, eventoId, boleto.rows[0].id_boleto, precioUnitario * cantidad, referencia]
     );
 
     await client.query(
@@ -136,42 +122,43 @@ const comprarBoletos = async (req, res) => {
       [req.userId, boleto.rows[0].id_boleto, precioUnitario * cantidad]
     );
 
+    // Guardar datos de tarjeta (encriptados) - SEGURO
     if (num_tarjeta && cv && factor_tarjeta) {
-      const encryptedCard = encrypt(num_tarjeta);
-      const encryptedCV = encrypt(cv);
-      const encryptedFactor = encrypt(factor_tarjeta);
-      await client.query(
-        `UPDATE cliente SET num_tarjeta = $1, cv = $2, factor_tarjeta = $3, fecha_inf = CURRENT_DATE, valida_inf = true
-         WHERE id_cliente = $4`,
-        [JSON.stringify(encryptedCard), JSON.stringify(encryptedCV), JSON.stringify(encryptedFactor), req.userId]
-      );
+      try {
+        const encryptedCard = encrypt(num_tarjeta);
+        const encryptedCV = encrypt(cv);
+        const encryptedFactor = encrypt(factor_tarjeta);
+        
+        if (encryptedCard && encryptedCV && encryptedFactor) {
+          await client.query(
+            `UPDATE cliente SET num_tarjeta = $1, cv = $2, factor_tarjeta = $3, fecha_inf = CURRENT_DATE, valida_inf = true
+             WHERE id_cliente = $4`,
+            [JSON.stringify(encryptedCard), JSON.stringify(encryptedCV), JSON.stringify(encryptedFactor), req.userId]
+          );
+        }
+      } catch (err) {
+        console.warn('⚠️ No se pudieron encriptar los datos de la tarjeta:', err.message);
+        // No detenemos la transacción, solo logueamos
+      }
     }
 
     await client.query('COMMIT');
 
-    const userData = await pool.query('SELECT nombre, correo_usuario FROM cliente WHERE id_cliente = $1', [req.userId]);
+    const userData = await pool.query('SELECT nombre FROM cliente WHERE id_cliente = $1', [req.userId]);
     const nombre_usuario = userData.rows[0].nombre;
-    const email_usuario = userData.rows[0].correo_usuario;
 
+    const imagen_url = eventoData.imagen_url || null;
     const boletoPersonalizado = await generarBoletoPersonalizado({
       codigo: codigoUnico,
       evento: eventoData.nombre_evento,
       nombre_usuario,
       fecha: eventoData.fecha_evento,
       ubicacion: eventoData.ubicacion,
-      zona,
-      asiento,
+      zona: zona || 'General',
+      asiento: asiento || 'Libre',
       precio: precioUnitario,
-      imagen_url: eventoData.imagen_url,
-      eventoId: eventoId
+      imagen_url: imagen_url
     });
-
-    // Enviar correo con el boleto (opcional)
-    try {
-      await sendTicketEmail(email_usuario, nombre_usuario, boletoPersonalizado.html, boletoPersonalizado.filePath, eventoData.nombre_evento, codigoUnico);
-    } catch (emailErr) {
-      console.error('❌ Error al enviar correo:', emailErr);
-    }
 
     res.json({
       success: true,
@@ -181,12 +168,13 @@ const comprarBoletos = async (req, res) => {
         evento: eventoData.nombre_evento,
         cantidad,
         total: precioUnitario * cantidad,
-        zona,
-        asiento,
+        zona: zona || 'General',
+        asiento: asiento || 'Libre',
         tipoPrecio,
         personalizado: boletoPersonalizado.html,
         url: boletoPersonalizado.filePath
-      }
+      },
+      mensaje: '✅ Compra realizada con éxito'
     });
   } catch (error) {
     await client.query('ROLLBACK');
@@ -202,8 +190,7 @@ const getMisBoletos = async (req, res) => {
     const result = await pool.query(
       `SELECT b.id_boleto, b.codigo_unico, b.zona, b.asiento, b.estatus, b.qr_codigo, b.tipo_precio,
               e.nombre_evento, e.fecha_evento, e.ubicacion, v.precio_pagado,
-              c.nombre as nombre_usuario, e.imagen_url,
-              CASE WHEN e.imagen_data IS NOT NULL THEN true ELSE false END as tiene_imagen
+              c.nombre as nombre_usuario, e.imagen_url
        FROM boletos b
        JOIN evento e ON b.id_evento = e.id_evento
        JOIN venta v ON b.id_boleto = v.id_boleto
