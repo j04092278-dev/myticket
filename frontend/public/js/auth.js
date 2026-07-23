@@ -3,7 +3,8 @@ class Auth {
     const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nombre, edad, telefono, correo_usuario, contrasena })
+      body: JSON.stringify({ nombre, edad, telefono, correo_usuario, contrasena }),
+      credentials: 'include'
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
@@ -23,14 +24,22 @@ class Auth {
   }
 
   static async logout() {
-    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+    await fetch('/api/auth/logout', { 
+      method: 'POST', 
+      credentials: 'include' 
+    });
   }
 
   static async getCurrentUser() {
     try {
-      const res = await fetch('/api/auth/me', { credentials: 'include' });
+      const res = await fetch('/api/auth/me', { 
+        credentials: 'include' 
+      });
+      if (res.status === 401) return null;
       if (!res.ok) return null;
       return await res.json();
-    } catch { return null; }
+    } catch { 
+      return null; 
+    }
   }
 }

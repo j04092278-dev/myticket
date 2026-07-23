@@ -46,6 +46,7 @@ form.onsubmit = async (e) => {
       const res = await Auth.login(email, pass);
       if (res.success) {
         showToast('✅ Sesión iniciada', 'success');
+        // Redirigir a eventos después de login exitoso
         window.location.href = '/eventos.html';
       } else {
         showToast('❌ ' + (res.error || 'Credenciales incorrectas'), 'error');
@@ -64,6 +65,7 @@ form.onsubmit = async (e) => {
     try {
       await Auth.register(nombre, edad, telefono, email, pass);
       showToast('✅ Registro exitoso. Ahora inicia sesión', 'success');
+      // Cambiar a modo login
       isLogin = true;
       title.innerText = 'Iniciar Sesión';
       submitBtn.innerText = 'Ingresar';

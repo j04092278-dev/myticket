@@ -6,22 +6,33 @@ async function loadUser() {
     const res = await Auth.getCurrentUser();
     if (res && res.user) {
       currentUser = res.user;
-      document.getElementById('userName').innerText = currentUser.nombre.split(' ')[0];
-      document.getElementById('loginBtn').style.display = 'none';
-      document.getElementById('logoutBtn').style.display = 'inline-block';
+      const userNameEl = document.getElementById('userName');
+      if (userNameEl) userNameEl.innerText = currentUser.nombre.split(' ')[0];
+      const loginBtn = document.getElementById('loginBtn');
+      const logoutBtn = document.getElementById('logoutBtn');
+      if (loginBtn) loginBtn.style.display = 'none';
+      if (logoutBtn) logoutBtn.style.display = 'inline-block';
     } else {
-      document.getElementById('loginBtn').style.display = 'inline-block';
-      document.getElementById('logoutBtn').style.display = 'none';
-      document.getElementById('userName').innerText = 'Invitado';
+      const loginBtn = document.getElementById('loginBtn');
+      const logoutBtn = document.getElementById('logoutBtn');
+      const userNameEl = document.getElementById('userName');
+      if (loginBtn) loginBtn.style.display = 'inline-block';
+      if (logoutBtn) logoutBtn.style.display = 'none';
+      if (userNameEl) userNameEl.innerText = 'Invitado';
+      currentUser = null;
     }
   } catch(e) {
     console.error('Error en loadUser:', e);
+    currentUser = null;
   }
 }
 
+// Cerrar sesión
 document.getElementById('logoutBtn').onclick = async () => {
   await Auth.logout();
-  location.href = '/';
+  // Limpiar usuario y redirigir
+  currentUser = null;
+  window.location.href = '/';
 };
 
 async function verificarINE() {

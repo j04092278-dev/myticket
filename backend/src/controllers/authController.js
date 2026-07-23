@@ -5,10 +5,8 @@ const jwt = require('jsonwebtoken');
 const register = async (req, res) => {
   const { nombre, edad, telefono, correo_usuario, contrasena } = req.body;
   try {
-    // Validar que el email no esté registrado
     const exists = await pool.query('SELECT id_cliente FROM cliente WHERE correo_usuario = $1', [correo_usuario]);
     if (exists.rows.length > 0) return res.status(400).json({ error: 'Email ya registrado' });
-
     const hashed = await bcrypt.hash(contrasena, 10);
     const result = await pool.query(
       `INSERT INTO cliente (nombre, edad, telefono, correo_usuario, contrasena)
@@ -17,7 +15,7 @@ const register = async (req, res) => {
     );
     res.status(201).json({ success: true, user: result.rows[0] });
   } catch (error) {
-    console.error('❌ Error en register:', error);
+    console.error(error);
     res.status(500).json({ error: 'Error en el servidor' });
   }
 };
@@ -30,36 +28,41 @@ const login = async (req, res) => {
       [correo_usuario]
     );
     if (result.rows.length === 0) return res.status(401).json({ error: 'Credenciales incorrectas' });
-
     const user = result.rows[0];
     const valid = await bcrypt.compare(contrasena, user.contrasena);
     if (!valid) return res.status(401).json({ error: 'Credenciales incorrectas' });
-
+    
     const token = jwt.sign(
       { id: user.id_cliente, email: user.correo_usuario, isAdmin: user.es_admin },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
-
+    
+    // ===== CONFIGURACIÓN DE COOKIE PARA RENDER =====
+    const isProduction = process.env.NODE_ENV === 'production';
     res.cookie('token', token, {
       httpOnly: true,
+      secure: isProduction,    // Solo HTTPS en producción
+      sameSite: isProduction ? 'none' : 'lax',  // 'none' para cross-site en producción
       maxAge: 7 * 24 * 60 * 60 * 1000,
-      sameSite: 'strict',
-      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      domain: isProduction ? '.onrender.com' : undefined // Para Render
     });
-
-    res.json({
-      success: true,
-      user: { id: user.id_cliente, nombre: user.nombre, email: user.correo_usuario, isAdmin: user.es_admin }
-    });
+    
+    res.json({ success: true, user: { id: user.id_cliente, nombre: user.nombre, email: user.correo_usuario, isAdmin: user.es_admin } });
   } catch (error) {
-    console.error('❌ Error en login:', error);
+    console.error(error);
     res.status(500).json({ error: 'Error en el servidor' });
   }
 };
 
 const logout = (req, res) => {
-  res.clearCookie('token');
+  res.clearCookie('token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    path: '/'
+  });
   res.json({ success: true });
 };
 

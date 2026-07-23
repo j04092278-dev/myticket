@@ -16,10 +16,33 @@ const pagoRoutes = require('./routes/pagoRoutes');
 
 const app = express();
 
+// ===== CONFIGURACIÓN CORS PARA RENDER =====
+// Permitir cualquier origen en desarrollo, y en producción solo el frontend
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5000',
+  'https://myticket.onrender.com',
+  process.env.FRONTEND_URL,
+  process.env.RENDER_EXTERNAL_URL
+].filter(Boolean);
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // Permitir peticiones sin origen (como Postman) o si el origen está permitido
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
+      callback(null, true);
+    } else {
+      callback(new Error('No permitido por CORS'));
+    }
+  },
+  credentials: true
+}));
+
+// ===== TRUST PROXY =====
 app.set('trust proxy', 'loopback');
 
 app.use(helmet({ contentSecurityPolicy: false }));
-app.use(cors({ origin: 'http://localhost:3000', credentials: true }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
