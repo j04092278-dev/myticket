@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 
 const authMiddleware = (req, res, next) => {
-  // Primero intentar desde cookie
+  // Intentar obtener token desde cookie
   let token = req.cookies.token;
   
   // Si no está en cookie, buscar en header Authorization
@@ -13,6 +13,7 @@ const authMiddleware = (req, res, next) => {
   }
 
   if (!token) {
+    console.log('❌ No hay token en la solicitud');
     return res.status(401).json({ error: 'No autorizado - token no encontrado' });
   }
 
@@ -21,6 +22,7 @@ const authMiddleware = (req, res, next) => {
     req.userId = decoded.id;
     req.isAdmin = decoded.isAdmin || false;
     req.userEmail = decoded.email;
+    console.log(`✅ Token verificado para usuario: ${decoded.email}`);
     next();
   } catch (err) {
     console.error('❌ Error verificando token:', err.message);

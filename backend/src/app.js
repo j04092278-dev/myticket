@@ -27,11 +27,11 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Permitir peticiones sin origen (ej. Postman) o si el origen está permitido
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
       callback(null, true);
     } else {
+      console.log('❌ CORS bloqueado para:', origin);
       callback(new Error('No permitido por CORS'));
     }
   },
@@ -40,7 +40,7 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
 }));
 
-app.set('trust proxy', 'loopback');
+app.set('trust proxy', true);
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json({ limit: '10mb' }));

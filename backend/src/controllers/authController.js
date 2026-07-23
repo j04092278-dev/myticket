@@ -42,16 +42,18 @@ const login = async (req, res) => {
       { expiresIn: '7d' }
     );
 
-    // ===== CONFIGURACIÓN DE COOKIE PARA RENDER =====
+    // ===== COOKIE CONFIGURACIÓN (SIN DOMAIN PARA EL MISMO SITIO) =====
     const isProduction = process.env.NODE_ENV === 'production';
     res.cookie('token', token, {
       httpOnly: true,
-      secure: isProduction, // Solo HTTPS en producción
-      sameSite: isProduction ? 'none' : 'lax', // 'none' para cross-site
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 días
-      path: '/',
-      domain: isProduction ? '.onrender.com' : undefined // Importante para Render
+      secure: isProduction,   // true en producción (HTTPS)
+      sameSite: 'lax',        // Funciona en el mismo dominio
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/'
     });
+
+    // Log para verificar que se envió la cookie
+    console.log('✅ Cookie token establecida para:', user.correo_usuario);
 
     res.json({
       success: true,
@@ -73,9 +75,8 @@ const logout = (req, res) => {
   res.clearCookie('token', {
     httpOnly: true,
     secure: isProduction,
-    sameSite: isProduction ? 'none' : 'lax',
-    path: '/',
-    domain: isProduction ? '.onrender.com' : undefined
+    sameSite: 'lax',
+    path: '/'
   });
   res.json({ success: true });
 };
