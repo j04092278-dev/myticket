@@ -80,6 +80,14 @@ const validarINEConImagen = async (req, res) => {
   try {
     console.log('📥 Datos recibidos:', { numero_ine, curp, nombre_completo, fecha_nacimiento, sexo, entidad_emision });
 
+    // ===== VALIDAR QUE EL SEXO SEA OBLIGATORIO Y VÁLIDO =====
+    if (!sexo || (sexo !== 'M' && sexo !== 'F')) {
+      console.log(`❌ Sexo inválido o no seleccionado: ${sexo}`);
+      return res.status(400).json({ 
+        error: 'Debes seleccionar tu sexo: Masculino (M) o Femenino (F).' 
+      });
+    }
+
     // VALIDAR CURP
     const curpValido = validateCURP(curp);
     if (!curpValido) {

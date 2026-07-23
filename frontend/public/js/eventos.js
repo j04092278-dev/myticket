@@ -231,7 +231,7 @@ async function procederConCompra(eventoId, esPreventa, eventoNombre, precioUnita
   mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asiento, eventoNombre, precioUnitario);
 }
 
-// ========== VALIDACIÓN DE INE ==========
+// ========== VALIDACIÓN DE INE CON CAMPO SEXO OBLIGATORIO ==========
 function mostrarModalValidacionINE(callback) {
   const modal = document.createElement('div');
   modal.id = 'ineModal';
@@ -270,6 +270,16 @@ function mostrarModalValidacionINE(callback) {
           <label style="color: #ccc; display: block; margin-bottom: 0.3rem;">Fecha de nacimiento</label>
           <input type="date" id="fechaNacINE" required style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem;">
         </div>
+        <!-- ===== CAMPO SEXO OBLIGATORIO ===== -->
+        <div style="margin-bottom: 1rem;">
+          <label style="color: #ccc; display: block; margin-bottom: 0.3rem;">Sexo</label>
+          <select id="sexoINE" required style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem; box-sizing:border-box;">
+            <option value="">Selecciona tu sexo</option>
+            <option value="M">Masculino</option>
+            <option value="F">Femenino</option>
+          </select>
+        </div>
+        <!-- ===== FIN CAMPO SEXO ===== -->
         <div style="margin-bottom: 1rem;">
           <label style="color: #ff3333; display: block; margin-bottom: 0.3rem;"><i class="fas fa-id-card"></i> Foto de tu INE</label>
           <input type="file" id="fotoINE" accept="image/*" required style="width:100%; padding:0.6rem; background:rgba(255,255,255,0.05); border:1px dashed #ff0000; border-radius:0.8rem; color:white; cursor:pointer;">
@@ -346,24 +356,31 @@ function mostrarModalValidacionINE(callback) {
     callback(false);
   };
 
-  // ===== FORMULARIO DE VALIDACIÓN CON LIMPIEZA =====
+  // ===== FORMULARIO DE VALIDACIÓN CON LIMPIEZA Y SEXO =====
   document.getElementById('ineFormModal').onsubmit = async (e) => {
     e.preventDefault();
     
-    // ===== LIMPIEZA DE DATOS (SOLO ALFANUMÉRICOS) =====
+    // ===== OBTENER Y LIMPIAR DATOS =====
     const numeroINE = document.getElementById('numINE').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
     const curp = document.getElementById('curpINE').value.trim().toUpperCase().replace(/[^A-ZÑ0-9]/g, '');
     const nombreCompleto = document.getElementById('nombreINE').value.trim();
     const fechaNacimiento = document.getElementById('fechaNacINE').value;
+    const sexo = document.getElementById('sexoINE').value; // 'M' o 'F'
     
-    console.log('📤 Datos enviados (frontend):', { numeroINE, curp, nombreCompleto, fechaNacimiento });
+    // ===== VALIDAR QUE EL SEXO ESTÉ SELECCIONADO =====
+    if (!sexo) {
+      showToast('Por favor, selecciona tu sexo (Masculino o Femenino)', 'warning');
+      return;
+    }
+
+    console.log('📤 Datos enviados (frontend):', { numeroINE, curp, nombreCompleto, fechaNacimiento, sexo });
 
     const formData = new FormData();
     formData.append('numero_ine', numeroINE);
     formData.append('curp', curp);
     formData.append('nombre_completo', nombreCompleto);
     formData.append('fecha_nacimiento', fechaNacimiento);
-    formData.append('sexo', '');
+    formData.append('sexo', sexo); // Ahora envía 'M' o 'F'
     formData.append('entidad_emision', '');
 
     const fotoINE = document.getElementById('fotoINE').files[0];
