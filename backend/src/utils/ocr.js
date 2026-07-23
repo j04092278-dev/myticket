@@ -27,11 +27,9 @@ function extraerCURP(texto) {
 }
 
 function extraerNombre(texto) {
-  // Busca patrones como "NOMBRE: ..." o "NOMBRE ..."
   const regex = /NOMBRE\s*[:.]?\s*([A-ZÁÉÍÓÚÑ\s]+)/i;
   const match = texto.match(regex);
   if (match) return match[1].trim();
-  // Si no, intenta buscar una línea con mayúsculas y espacios
   const lines = texto.split('\n').map(l => l.trim());
   for (let line of lines) {
     if (line.length > 10 && line.match(/^[A-ZÁÉÍÓÚÑ\s]+$/)) {
@@ -42,7 +40,6 @@ function extraerNombre(texto) {
 }
 
 function extraerFechaNacimiento(texto) {
-  // Busca patrones de fecha como DD/MM/AAAA o DD-MM-AAAA
   const regex = /(\d{2}\s*[/-]\s*\d{2}\s*[/-]\s*\d{4})/;
   const match = texto.match(regex);
   if (match) return match[1];

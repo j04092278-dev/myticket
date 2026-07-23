@@ -231,7 +231,7 @@ async function procederConCompra(eventoId, esPreventa, eventoNombre, precioUnita
   mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asiento, eventoNombre, precioUnitario);
 }
 
-// ========== VALIDACIÓN DE INE CON CAMPO SEXO VISIBLE ==========
+// ========== VALIDACIÓN DE INE CON OCR Y CÁMARA ==========
 function mostrarModalValidacionINE(callback) {
   const modal = document.createElement('div');
   modal.id = 'ineModal';
@@ -253,24 +253,31 @@ function mostrarModalValidacionINE(callback) {
     <div style="background: linear-gradient(145deg, rgba(10,20,45,0.95), rgba(26,11,46,0.95)); border-radius: 2rem; padding: 2rem; max-width: 550px; width: 100%; border: 2px solid #ff0000; box-shadow: 0 0 40px rgba(255,0,0,0.3); max-height: 90vh; overflow-y: auto;">
       <h2 style="color: #ff3333; font-size: 1.8rem; text-align: center;">🔐 Validación de INE</h2>
       <p style="color: #aaa; text-align: center; margin-bottom: 1.5rem;">Para comprar boletos, debes validar tu identidad con INE y selfie.</p>
+      
+      <!-- ===== NOTA DE VALIDACIÓN OCR ===== -->
+      <div id="ocrStatus" style="display:none; margin-bottom:1rem; padding:0.8rem; border-radius:0.8rem; text-align:center;"></div>
+      
       <form id="ineFormModal" enctype="multipart/form-data">
         <div style="margin-bottom: 1rem;">
           <label style="color: #ccc; display: block; margin-bottom: 0.3rem;">Número de INE (Clave de Elector)</label>
           <input type="text" id="numINE" placeholder="Ej: MRHRJN06121909H900" required style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem;">
+          <div id="ineValid" style="font-size:0.8rem; margin-top:0.2rem;"></div>
         </div>
         <div style="margin-bottom: 1rem;">
           <label style="color: #ccc; display: block; margin-bottom: 0.3rem;">CURP</label>
           <input type="text" id="curpINE" placeholder="Ej: MAHJ061219HDFRRNA6" required style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem;">
+          <div id="curpValid" style="font-size:0.8rem; margin-top:0.2rem;"></div>
         </div>
         <div style="margin-bottom: 1rem;">
           <label style="color: #ccc; display: block; margin-bottom: 0.3rem;">Nombre completo</label>
           <input type="text" id="nombreINE" placeholder="Como aparece en tu INE" required style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem;">
+          <div id="nombreValid" style="font-size:0.8rem; margin-top:0.2rem;"></div>
         </div>
         <div style="margin-bottom: 1rem;">
           <label style="color: #ccc; display: block; margin-bottom: 0.3rem;">Fecha de nacimiento</label>
           <input type="date" id="fechaNacINE" required style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem;">
+          <div id="fechaValid" style="font-size:0.8rem; margin-top:0.2rem;"></div>
         </div>
-        <!-- ===== CAMPO SEXO CON ESTILO VISIBLE ===== -->
         <div style="margin-bottom: 1rem;">
           <label style="color: #ccc; display: block; margin-bottom: 0.3rem;">Sexo</label>
           <select id="sexoINE" required style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem; box-sizing:border-box; appearance:none; -webkit-appearance:none; background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><path fill="white" d="M6 8L1 3h10z"/></svg>'); background-repeat:no-repeat; background-position:right 1rem center; background-size:12px;">
@@ -278,21 +285,33 @@ function mostrarModalValidacionINE(callback) {
             <option value="M" style="color:white; background:#1a1a1a;">Masculino</option>
             <option value="F" style="color:white; background:#1a1a1a;">Femenino</option>
           </select>
+          <div id="sexoValid" style="font-size:0.8rem; margin-top:0.2rem;"></div>
         </div>
-        <!-- ===== FIN CAMPO SEXO ===== -->
+        
+        <!-- ===== FOTO DEL INE CON OPCIÓN DE CÁMARA ===== -->
         <div style="margin-bottom: 1rem;">
           <label style="color: #ff3333; display: block; margin-bottom: 0.3rem;"><i class="fas fa-id-card"></i> Foto de tu INE</label>
-          <input type="file" id="fotoINE" accept="image/*" required style="width:100%; padding:0.6rem; background:rgba(255,255,255,0.05); border:1px dashed #ff0000; border-radius:0.8rem; color:white; cursor:pointer;">
+          <input type="file" id="fotoINE" accept="image/*" style="width:100%; padding:0.6rem; background:rgba(255,255,255,0.05); border:1px dashed #ff0000; border-radius:0.8rem; color:white; cursor:pointer; margin-bottom:0.5rem;">
+          <button type="button" id="ineCamBtn" style="background:rgba(255,0,0,0.2); border:1px solid #ff0000; color:#ff3333; padding:0.5rem 1rem; border-radius:0.8rem; cursor:pointer; width:100%;">
+            <i class="fas fa-camera"></i> Tomar foto del INE
+          </button>
+          <video id="ineVideo" style="width:100%; max-height:200px; display:none; margin-top:0.5rem; border-radius:0.5rem; background:#000;" autoplay></video>
+          <button type="button" id="ineCaptureBtn" style="display:none; background:#ff0000; color:white; border:none; padding:0.3rem 1rem; border-radius:0.5rem; cursor:pointer; margin-top:0.5rem; width:100%;">📸 Capturar INE</button>
+          <img id="inePreview" style="display:none; max-width:100%; margin-top:0.5rem; border-radius:0.5rem; border:2px solid #ff0000;">
         </div>
+        
+        <!-- ===== SELFIE CON CÁMARA ===== -->
         <div style="margin-bottom: 1.5rem;">
           <label style="color: #ff3333; display: block; margin-bottom: 0.3rem;"><i class="fas fa-camera"></i> Selfie (foto de tu cara)</label>
-          <input type="file" id="selfieINE" accept="image/*" required style="width:100%; padding:0.6rem; background:rgba(255,255,255,0.05); border:1px dashed #ff0000; border-radius:0.8rem; color:white; cursor:pointer; margin-bottom:0.5rem;">
+          <input type="file" id="selfieINE" accept="image/*" style="width:100%; padding:0.6rem; background:rgba(255,255,255,0.05); border:1px dashed #ff0000; border-radius:0.8rem; color:white; cursor:pointer; margin-bottom:0.5rem;">
           <button type="button" id="selfieCamBtn" style="background:rgba(255,0,0,0.2); border:1px solid #ff0000; color:#ff3333; padding:0.5rem 1rem; border-radius:0.8rem; cursor:pointer; width:100%;">
-            <i class="fas fa-camera"></i> Tomar selfie con cámara
+            <i class="fas fa-camera"></i> Tomar selfie
           </button>
           <video id="selfieVideo" style="width:100%; max-height:200px; display:none; margin-top:0.5rem; border-radius:0.5rem; background:#000;" autoplay></video>
           <button type="button" id="selfieCaptureBtn" style="display:none; background:#ff0000; color:white; border:none; padding:0.3rem 1rem; border-radius:0.5rem; cursor:pointer; margin-top:0.5rem; width:100%;">📸 Capturar selfie</button>
+          <img id="selfiePreview" style="display:none; max-width:100%; margin-top:0.5rem; border-radius:0.5rem; border:2px solid #ff0000;">
         </div>
+        
         <button type="submit" style="background:linear-gradient(135deg, #cc0000, #ff0000); border:none; padding:0.8rem; border-radius:2rem; font-weight:bold; font-size:1.1rem; color:white; cursor:pointer; width:100%; box-shadow:0 0 20px rgba(255,0,0,0.3); transition:0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
           ✅ Validar y Comprar
         </button>
@@ -304,72 +323,227 @@ function mostrarModalValidacionINE(callback) {
   `;
   document.body.appendChild(modal);
 
-  let stream = null;
-  const video = document.getElementById('selfieVideo');
-  const camBtn = document.getElementById('selfieCamBtn');
-  const captureBtn = document.getElementById('selfieCaptureBtn');
-  const selfieInput = document.getElementById('selfieINE');
+  // ===== VARIABLES PARA CÁMARAS =====
+  let ineStream = null;
+  let selfieStream = null;
+  const ineVideo = document.getElementById('ineVideo');
+  const ineCamBtn = document.getElementById('ineCamBtn');
+  const ineCaptureBtn = document.getElementById('ineCaptureBtn');
+  const ineFileInput = document.getElementById('fotoINE');
+  const inePreview = document.getElementById('inePreview');
 
-  camBtn.onclick = async () => {
-    if (video.style.display === 'none') {
+  const selfieVideo = document.getElementById('selfieVideo');
+  const selfieCamBtn = document.getElementById('selfieCamBtn');
+  const selfieCaptureBtn = document.getElementById('selfieCaptureBtn');
+  const selfieFileInput = document.getElementById('selfieINE');
+  const selfiePreview = document.getElementById('selfiePreview');
+
+  // ===== FUNCIÓN PARA CAPTURAR FOTO DEL INE =====
+  async function capturarINE() {
+    if (ineVideo.style.display === 'none') {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        video.srcObject = stream;
-        video.style.display = 'block';
-        captureBtn.style.display = 'block';
-        camBtn.textContent = 'Ocultar cámara';
+        ineStream = await navigator.mediaDevices.getUserMedia({ video: true, facingMode: 'environment' });
+        ineVideo.srcObject = ineStream;
+        ineVideo.style.display = 'block';
+        ineCaptureBtn.style.display = 'block';
+        ineCamBtn.textContent = 'Ocultar cámara';
       } catch(e) {
         showToast('Error al acceder a la cámara. Asegúrate de dar permisos.', 'error');
       }
     } else {
-      if (stream) stream.getTracks().forEach(t => t.stop());
-      video.style.display = 'none';
-      captureBtn.style.display = 'none';
-      camBtn.textContent = 'Tomar selfie con cámara';
+      if (ineStream) ineStream.getTracks().forEach(t => t.stop());
+      ineVideo.style.display = 'none';
+      ineCaptureBtn.style.display = 'none';
+      ineCamBtn.textContent = 'Tomar foto del INE';
     }
+  }
+
+  ineCamBtn.onclick = capturarINE;
+
+  ineCaptureBtn.onclick = () => {
+    if (!ineStream) { showToast('Activa la cámara primero.', 'warning'); return; }
+    const canvas = document.createElement('canvas');
+    canvas.width = ineVideo.videoWidth || 640;
+    canvas.height = ineVideo.videoHeight || 480;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(ineVideo, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(async (blob) => {
+      if (!blob) { showToast('Error al capturar', 'error'); return; }
+      const file = new File([blob], 'ine.jpg', { type: 'image/jpeg' });
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      ineFileInput.files = dt.files;
+      inePreview.src = URL.createObjectURL(blob);
+      inePreview.style.display = 'block';
+      showToast('✅ Foto de INE capturada. Extrayendo datos...', 'success');
+      
+      if (ineStream) ineStream.getTracks().forEach(t => t.stop());
+      ineVideo.style.display = 'none';
+      ineCaptureBtn.style.display = 'none';
+      ineCamBtn.textContent = 'Tomar foto del INE';
+      
+      // ===== ENVIAR A OCR =====
+      await extraerDatosINE(file);
+    }, 'image/jpeg', 0.9);
   };
 
-  captureBtn.onclick = () => {
-    if (!stream) { showToast('Activa la cámara primero.', 'warning'); return; }
+  // ===== FUNCIÓN PARA CAPTURAR SELFIE =====
+  async function capturarSelfie() {
+    if (selfieVideo.style.display === 'none') {
+      try {
+        selfieStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        selfieVideo.srcObject = selfieStream;
+        selfieVideo.style.display = 'block';
+        selfieCaptureBtn.style.display = 'block';
+        selfieCamBtn.textContent = 'Ocultar cámara';
+      } catch(e) {
+        showToast('Error al acceder a la cámara. Asegúrate de dar permisos.', 'error');
+      }
+    } else {
+      if (selfieStream) selfieStream.getTracks().forEach(t => t.stop());
+      selfieVideo.style.display = 'none';
+      selfieCaptureBtn.style.display = 'none';
+      selfieCamBtn.textContent = 'Tomar selfie';
+    }
+  }
+
+  selfieCamBtn.onclick = capturarSelfie;
+
+  selfieCaptureBtn.onclick = () => {
+    if (!selfieStream) { showToast('Activa la cámara primero.', 'warning'); return; }
     const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
+    canvas.width = selfieVideo.videoWidth || 640;
+    canvas.height = selfieVideo.videoHeight || 480;
     const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(selfieVideo, 0, 0, canvas.width, canvas.height);
     canvas.toBlob((blob) => {
       if (!blob) { showToast('Error al capturar', 'error'); return; }
       const file = new File([blob], 'selfie.jpg', { type: 'image/jpeg' });
       const dt = new DataTransfer();
       dt.items.add(file);
-      selfieInput.files = dt.files;
+      selfieFileInput.files = dt.files;
+      selfiePreview.src = URL.createObjectURL(blob);
+      selfiePreview.style.display = 'block';
       showToast('✅ Selfie capturada', 'success');
-      if (stream) stream.getTracks().forEach(t => t.stop());
-      video.style.display = 'none';
-      captureBtn.style.display = 'none';
-      camBtn.textContent = 'Tomar selfie con cámara';
+      if (selfieStream) selfieStream.getTracks().forEach(t => t.stop());
+      selfieVideo.style.display = 'none';
+      selfieCaptureBtn.style.display = 'none';
+      selfieCamBtn.textContent = 'Tomar selfie';
     }, 'image/jpeg', 0.9);
   };
 
+  // ===== FUNCIÓN OCR =====
+  async function extraerDatosINE(file) {
+    const statusDiv = document.getElementById('ocrStatus');
+    statusDiv.style.display = 'block';
+    statusDiv.innerHTML = '⏳ Extrayendo datos del INE...';
+    statusDiv.style.background = 'rgba(255,255,0,0.2)';
+    statusDiv.style.color = '#ffcc00';
+
+    try {
+      const formData = new FormData();
+      formData.append('ineImage', file);
+
+      const res = await fetch('/api/ine/ocr', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
+      });
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        statusDiv.innerHTML = '✅ Datos extraídos correctamente';
+        statusDiv.style.background = 'rgba(0,255,0,0.2)';
+        statusDiv.style.color = '#00ff88';
+
+        // Autocompletar campos
+        if (data.numero_ine) document.getElementById('numINE').value = data.numero_ine;
+        if (data.curp) document.getElementById('curpINE').value = data.curp;
+        if (data.nombre_completo) document.getElementById('nombreINE').value = data.nombre_completo;
+        if (data.fecha_nacimiento) {
+          // Formato esperado: YYYY-MM-DD
+          const fecha = data.fecha_nacimiento;
+          if (fecha.includes('/')) {
+            const partes = fecha.split('/');
+            if (partes.length === 3) {
+              // Asumimos DD/MM/YYYY o MM/DD/YYYY? mejor lo dejamos como está
+              document.getElementById('fechaNacINE').value = partes.reverse().join('-');
+            }
+          } else {
+            document.getElementById('fechaNacINE').value = fecha;
+          }
+        }
+        if (data.sexo) {
+          const sexoSelect = document.getElementById('sexoINE');
+          if (data.sexo.toUpperCase() === 'M' || data.sexo.toUpperCase() === 'F') {
+            sexoSelect.value = data.sexo.toUpperCase();
+          } else if (data.sexo.toLowerCase().includes('masculino')) {
+            sexoSelect.value = 'M';
+          } else if (data.sexo.toLowerCase().includes('femenino')) {
+            sexoSelect.value = 'F';
+          }
+        }
+
+        // Mostrar validación visual
+        validarCamposConOCR(data);
+        showToast('✅ Datos del INE extraídos y autocompletados', 'success');
+      } else {
+        statusDiv.innerHTML = '❌ No se pudieron extraer los datos. Ingresa manualmente.';
+        statusDiv.style.background = 'rgba(255,0,0,0.2)';
+        statusDiv.style.color = '#ff6666';
+        showToast('❌ Error al procesar OCR', 'error');
+      }
+    } catch (err) {
+      statusDiv.innerHTML = '❌ Error: ' + err.message;
+      statusDiv.style.background = 'rgba(255,0,0,0.2)';
+      statusDiv.style.color = '#ff6666';
+      showToast('Error en OCR: ' + err.message, 'error');
+    }
+  }
+
+  // ===== VALIDACIÓN VISUAL DE CAMPOS =====
+  function validarCamposConOCR(datos) {
+    const campos = [
+      { id: 'numINE', key: 'numero_ine', divId: 'ineValid' },
+      { id: 'curpINE', key: 'curp', divId: 'curpValid' },
+      { id: 'nombreINE', key: 'nombre_completo', divId: 'nombreValid' },
+      { id: 'fechaNacINE', key: 'fecha_nacimiento', divId: 'fechaValid' },
+      { id: 'sexoINE', key: 'sexo', divId: 'sexoValid' }
+    ];
+
+    campos.forEach(campo => {
+      const input = document.getElementById(campo.id);
+      const div = document.getElementById(campo.divId);
+      if (datos[campo.key]) {
+        div.innerHTML = `✅ Dato extraído: ${datos[campo.key]}`;
+        div.style.color = '#00ff88';
+      } else {
+        div.innerHTML = '❌ No se extrajo este dato';
+        div.style.color = '#ff6666';
+      }
+    });
+  }
+
+  // ===== CIERRE MODAL =====
   document.getElementById('closeINE').onclick = () => {
-    if (stream) stream.getTracks().forEach(t => t.stop());
+    if (ineStream) ineStream.getTracks().forEach(t => t.stop());
+    if (selfieStream) selfieStream.getTracks().forEach(t => t.stop());
     modal.remove();
     callback(false);
   };
 
-  // ===== FORMULARIO DE VALIDACIÓN CON LIMPIEZA Y SEXO =====
+  // ===== FORMULARIO DE VALIDACIÓN =====
   document.getElementById('ineFormModal').onsubmit = async (e) => {
     e.preventDefault();
     
-    // ===== OBTENER Y LIMPIAR DATOS =====
     const numeroINE = document.getElementById('numINE').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
     const curp = document.getElementById('curpINE').value.trim().toUpperCase().replace(/[^A-ZÑ0-9]/g, '');
     const nombreCompleto = document.getElementById('nombreINE').value.trim();
     const fechaNacimiento = document.getElementById('fechaNacINE').value;
     const sexo = document.getElementById('sexoINE').value;
     
-    // ===== VALIDAR QUE EL SEXO ESTÉ SELECCIONADO =====
     if (!sexo) {
-      showToast('Por favor, selecciona tu sexo (Masculino o Femenino)', 'warning');
+      showToast('Por favor, selecciona tu sexo', 'warning');
       return;
     }
 
@@ -402,7 +576,8 @@ function mostrarModalValidacionINE(callback) {
       if (res.ok && data.success) {
         showToast('✅ INE validado correctamente. Ahora puedes comprar.', 'success');
         modal.remove();
-        if (stream) stream.getTracks().forEach(t => t.stop());
+        if (ineStream) ineStream.getTracks().forEach(t => t.stop());
+        if (selfieStream) selfieStream.getTracks().forEach(t => t.stop());
         callback(true);
       } else {
         showToast('❌ ' + (data.error || 'Error al validar'), 'error');

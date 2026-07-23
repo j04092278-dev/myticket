@@ -166,4 +166,118 @@ const validarINEConImagen = async (req, res) => {
   }
 };
 
+// ========== OCR (Reconocimiento de texto) ==========
+const { extraerTextoDeImagen, validarDatosConOCR } = require('../utils/ocr');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+// Configuración de multer para OCR
+const ocrStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, './uploads/ine/');
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, `ocr_${Date.now()}${ext}`);
+  }
+});
+
+const ocrUpload = multer({
+  storage: ocrStorage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
+    if (allowed.includes(file.mimetype)) cb(null, true);
+    else cb(new Error('Formato no permitido'), false);
+  }
+});
+
+const ocrINE = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Debes subir una imagen del INE' });
+    }
+
+    const imagePath = req.file.path;
+    console.log('📷 Imagen recibida para OCR:', imagePath);
+
+    // Extraer texto con Tesseract
+    const textoExtraido = await extraerTextoDeImagen(imagePath);
+    if (!textoExtraido) {
+      return res.status(500).json({ error: 'No se pudo extraer texto de la imagen' });
+    }
+
+    console.log('📝 Texto OCR extraído:', textoExtraido);
+
+    // Procesar el texto para extraer datos
+    const datos = procesarTextoOCR(textoExtraido);
+    console.log('📊 Datos extraídos:', datos);
+
+    // Eliminar imagen temporal
+    fs.unlinkSync(imagePath);
+
+    res.json({
+      success: true,
+      ...datos
+    });
+  } catch (error) {
+    console.error('❌ Error en OCR:', error);
+    res.status(500).json({ error: 'Error al procesar OCR' });
+  }
+};
+
+function procesarTextoOCR(texto) {
+  const datos = {
+    numero_ine: null,
+    curp: null,
+    nombre_completo: null,
+    fecha_nacimiento: null,
+    sexo: null
+  };
+
+  // Buscar CURP (patrón de 18 caracteres alfanuméricos con Ñ)
+  const curpRegex = /[A-ZÑ]{4}[0-9]{6}[A-Z0-9]{6}[0-9X]/;
+  const curpMatch = texto.match(curpRegex);
+  if (curpMatch) datos.curp = curpMatch[0];
+
+  // Buscar Clave de Elector (INE) - 18 caracteres alfanuméricos (solo A-Z, 0-9)
+  const ineRegex = /[A-Z0-9]{18}/;
+  const ineMatch = texto.match(ineRegex);
+  if (ineMatch) datos.numero_ine = ineMatch[0];
+
+  // Buscar fecha de nacimiento (patrones DD/MM/AAAA, DD-MM-AAAA, DD/MM/AA, etc.)
+  const fechaRegex = /(\d{2})\s*[/-]\s*(\d{2})\s*[/-]\s*(\d{4})/;
+  const fechaMatch = texto.match(fechaRegex);
+  if (fechaMatch) {
+    const dia = fechaMatch[1];
+    const mes = fechaMatch[2];
+    const anio = fechaMatch[3];
+    datos.fecha_nacimiento = `${anio}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
+  }
+
+  // Buscar nombre (línea con mayúsculas y espacios, que no contenga números)
+  const lineas = texto.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  // Buscar líneas que parezcan nombres (mayúsculas y espacios, sin números)
+  const nombreCandidatos = lineas.filter(l => /^[A-ZÁÉÍÓÚÑ\s]+$/.test(l) && l.length > 5);
+  if (nombreCandidatos.length >= 2) {
+    // Unir las primeras dos líneas que parezcan nombre
+    datos.nombre_completo = nombreCandidatos.slice(0, 2).join(' ').trim();
+  } else if (nombreCandidatos.length === 1) {
+    datos.nombre_completo = nombreCandidatos[0];
+  }
+
+  // Buscar sexo (M, F, Masculino, Femenino)
+  if (texto.match(/MASCULINO|HOMBRE|M\b/)) {
+    datos.sexo = 'M';
+  } else if (texto.match(/FEMENINO|MUJER|F\b/)) {
+    datos.sexo = 'F';
+  }
+
+  return datos;
+}
+
+// Agregar la ruta en el router
+// router.post('/ocr', authMiddleware, ocrUpload.single('ineImage'), ocrINE);
+
 module.exports = { getEstadoINE, validarINEConImagen, upload };
