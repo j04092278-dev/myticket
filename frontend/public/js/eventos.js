@@ -231,7 +231,7 @@ async function procederConCompra(eventoId, esPreventa, eventoNombre, precioUnita
   mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asiento, eventoNombre, precioUnitario);
 }
 
-// ========== VALIDACIÓN DE INE CON CAMPO SEXO OBLIGATORIO ==========
+// ========== VALIDACIÓN DE INE CON CAMPO SEXO VISIBLE ==========
 function mostrarModalValidacionINE(callback) {
   const modal = document.createElement('div');
   modal.id = 'ineModal';
@@ -270,13 +270,13 @@ function mostrarModalValidacionINE(callback) {
           <label style="color: #ccc; display: block; margin-bottom: 0.3rem;">Fecha de nacimiento</label>
           <input type="date" id="fechaNacINE" required style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem;">
         </div>
-        <!-- ===== CAMPO SEXO OBLIGATORIO ===== -->
+        <!-- ===== CAMPO SEXO CON ESTILO VISIBLE ===== -->
         <div style="margin-bottom: 1rem;">
           <label style="color: #ccc; display: block; margin-bottom: 0.3rem;">Sexo</label>
-          <select id="sexoINE" required style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem; box-sizing:border-box;">
-            <option value="">Selecciona tu sexo</option>
-            <option value="M">Masculino</option>
-            <option value="F">Femenino</option>
+          <select id="sexoINE" required style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem; box-sizing:border-box; appearance:none; -webkit-appearance:none; background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><path fill="white" d="M6 8L1 3h10z"/></svg>'); background-repeat:no-repeat; background-position:right 1rem center; background-size:12px;">
+            <option value="" disabled selected style="color:#aaa; background:#0d0d0d;">Selecciona tu sexo</option>
+            <option value="M" style="color:white; background:#1a1a1a;">Masculino</option>
+            <option value="F" style="color:white; background:#1a1a1a;">Femenino</option>
           </select>
         </div>
         <!-- ===== FIN CAMPO SEXO ===== -->
@@ -365,7 +365,7 @@ function mostrarModalValidacionINE(callback) {
     const curp = document.getElementById('curpINE').value.trim().toUpperCase().replace(/[^A-ZÑ0-9]/g, '');
     const nombreCompleto = document.getElementById('nombreINE').value.trim();
     const fechaNacimiento = document.getElementById('fechaNacINE').value;
-    const sexo = document.getElementById('sexoINE').value; // 'M' o 'F'
+    const sexo = document.getElementById('sexoINE').value;
     
     // ===== VALIDAR QUE EL SEXO ESTÉ SELECCIONADO =====
     if (!sexo) {
@@ -380,7 +380,7 @@ function mostrarModalValidacionINE(callback) {
     formData.append('curp', curp);
     formData.append('nombre_completo', nombreCompleto);
     formData.append('fecha_nacimiento', fechaNacimiento);
-    formData.append('sexo', sexo); // Ahora envía 'M' o 'F'
+    formData.append('sexo', sexo);
     formData.append('entidad_emision', '');
 
     const fotoINE = document.getElementById('fotoINE').files[0];
