@@ -2,7 +2,9 @@ let currentUser = null;
 
 async function loadUser() {
   try {
+    console.log('🔄 Cargando usuario desde mis-boletos...');
     const res = await Auth.getCurrentUser();
+    console.log('📥 Respuesta de getCurrentUser:', res);
     if (res && res.user) {
       currentUser = res.user;
       document.getElementById('userName').innerText = currentUser.nombre.split(' ')[0];
@@ -10,10 +12,11 @@ async function loadUser() {
       document.getElementById('logoutBtn').style.display = 'inline-block';
       cargarBoletos();
     } else {
+      console.log('⚠️ Usuario no autenticado, redirigiendo a login');
       window.location.href = '/login.html?redirect=mis-boletos';
     }
   } catch(e) {
-    console.error('Error de autenticación:', e);
+    console.error('❌ Error de autenticación:', e);
     window.location.href = '/login.html?redirect=mis-boletos';
   }
 }
@@ -27,9 +30,11 @@ async function cargarBoletos() {
   const container = document.getElementById('boletosContainer');
   container.innerHTML = '<div class="loader"><div class="spinner"></div><p>Cargando tus boletos...</p></div>';
   try {
+    console.log('🔄 Cargando boletos...');
     const boletos = await API.getMisBoletos();
+    console.log('📦 Boletos recibidos:', boletos);
     if (!boletos || boletos.length === 0) {
-      container.innerHTML = '<p style="text-align:center;">🪐 No has comprado boletos aún. <a href="/eventos.html">Explorar eventos</a></p>';
+      container.innerHTML = '<p style="text-align:center; color:var(--text-secondary);">🪐 No has comprado boletos aún. <a href="/eventos.html" style="color:var(--red-main);">Explorar eventos</a></p>';
       return;
     }
     let html = '<div class="boletos-list">';
@@ -69,6 +74,7 @@ async function cargarBoletos() {
     html += '</div>';
     container.innerHTML = html;
   } catch (err) {
+    console.error('❌ Error cargando boletos:', err);
     if (err.message && err.message.includes('401')) {
       window.location.href = '/login.html?redirect=mis-boletos';
     } else {

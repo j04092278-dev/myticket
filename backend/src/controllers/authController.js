@@ -42,18 +42,26 @@ const login = async (req, res) => {
       { expiresIn: '7d' }
     );
 
-    // ===== COOKIE CONFIGURACIÓN (SIN DOMAIN PARA EL MISMO SITIO) =====
+    // ===== CONFIGURACIÓN DE COOKIE CON DOMINIO DINÁMICO =====
     const isProduction = process.env.NODE_ENV === 'production';
+    // Obtener el dominio del host (ej: myticket.onrender.com)
+    const host = req.get('host');
+    // Si es un dominio de Render (termina en onrender.com), usar el dominio base
+    let domain = undefined;
+    if (isProduction && host && host.includes('onrender.com')) {
+      domain = '.onrender.com'; // Permite compartir cookie entre subdominios
+    }
+
     res.cookie('token', token, {
       httpOnly: true,
       secure: isProduction,   // true en producción (HTTPS)
-      sameSite: 'lax',        // Funciona en el mismo dominio
+      sameSite: 'lax',        // Lax permite envío en navegación entre páginas del mismo sitio
       maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: '/'
+      path: '/',
+      domain: domain          // undefined para el dominio exacto, o .onrender.com para compartir
     });
 
-    // Log para verificar que se envió la cookie
-    console.log('✅ Cookie token establecida para:', user.correo_usuario);
+    console.log(`✅ Cookie token establecida para: ${user.correo_usuario} (domain: ${domain || 'none'})`);
 
     res.json({
       success: true,
@@ -72,11 +80,17 @@ const login = async (req, res) => {
 
 const logout = (req, res) => {
   const isProduction = process.env.NODE_ENV === 'production';
+  const host = req.get('host');
+  let domain = undefined;
+  if (isProduction && host && host.includes('onrender.com')) {
+    domain = '.onrender.com';
+  }
   res.clearCookie('token', {
     httpOnly: true,
     secure: isProduction,
     sameSite: 'lax',
-    path: '/'
+    path: '/',
+    domain: domain
   });
   res.json({ success: true });
 };
@@ -84,6 +98,7 @@ const logout = (req, res) => {
 const getMe = async (req, res) => {
   try {
     if (!req.userId) {
+      console.log('❌ getMe: userId no presente en la petición');
       return res.status(401).json({ error: 'No autenticado' });
     }
     const result = await pool.query(

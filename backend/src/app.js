@@ -16,7 +16,7 @@ const pagoRoutes = require('./routes/pagoRoutes');
 
 const app = express();
 
-// ===== CONFIGURACIÓN CORS =====
+// ===== CORS CONFIGURACIÓN =====
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5000',
@@ -40,8 +40,8 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
 }));
 
-// ===== CORRECCIÓN DE TRUST PROXY =====
-// Se cambia de 'true' a '1' para que sea seguro y funcione con el proxy de Render.
+// ===== CORRECCIÓN DEFINITIVA DE TRUST PROXY =====
+// Usamos '1' para confiar solo en el primer proxy (el de Render)
 app.set('trust proxy', 1);
 
 app.use(helmet({ contentSecurityPolicy: false }));
