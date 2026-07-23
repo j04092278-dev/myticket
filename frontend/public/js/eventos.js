@@ -7,19 +7,13 @@ async function loadUser() {
     const res = await Auth.getCurrentUser();
     if (res && res.user) {
       currentUser = res.user;
-      const userNameEl = document.getElementById('userName');
-      if (userNameEl) userNameEl.innerText = currentUser.nombre.split(' ')[0];
-      const loginBtn = document.getElementById('loginBtn');
-      const logoutBtn = document.getElementById('logoutBtn');
-      if (loginBtn) loginBtn.style.display = 'none';
-      if (logoutBtn) logoutBtn.style.display = 'inline-block';
+      document.getElementById('userName').innerText = currentUser.nombre.split(' ')[0];
+      document.getElementById('loginBtn').style.display = 'none';
+      document.getElementById('logoutBtn').style.display = 'inline-block';
     } else {
-      const loginBtn = document.getElementById('loginBtn');
-      const logoutBtn = document.getElementById('logoutBtn');
-      const userNameEl = document.getElementById('userName');
-      if (loginBtn) loginBtn.style.display = 'inline-block';
-      if (logoutBtn) logoutBtn.style.display = 'none';
-      if (userNameEl) userNameEl.innerText = 'Invitado';
+      document.getElementById('loginBtn').style.display = 'inline-block';
+      document.getElementById('logoutBtn').style.display = 'none';
+      document.getElementById('userName').innerText = 'Invitado';
       currentUser = null;
     }
   } catch(e) {
@@ -62,12 +56,11 @@ function iniciarCuentasRegresivas() {
   countdownIntervals = [];
   document.querySelectorAll('.evento-card').forEach(card => {
     const eventDate = card.dataset.eventDate;
-    const eventId = card.dataset.eventId;
-    const isPreventa = card.dataset.isPreventa === 'true';
     if (!eventDate) return;
     const container = card.querySelector('.countdown-container');
     if (!container) return;
     const eventDateObj = new Date(eventDate);
+    const isPreventa = card.dataset.isPreventa === 'true';
     let inicioPreventa, finPreventa;
     if (card.dataset.preventaInicio && card.dataset.preventaFin) {
       inicioPreventa = new Date(card.dataset.preventaInicio);
@@ -212,7 +205,7 @@ function mostrarModalCompra(eventoId, esPreventa, eventoNombre, precioUnitario) 
 async function procederConCompra(eventoId, esPreventa, eventoNombre, precioUnitario, cantidad, zona, asiento) {
   if (!currentUser) {
     showToast('Inicia sesión para comprar', 'warning');
-    location.href = '/login.html';
+    window.location.href = '/login.html';
     return;
   }
   let tipoPrecio = 'normal';
@@ -240,7 +233,7 @@ async function procederConCompra(eventoId, esPreventa, eventoNombre, precioUnita
   mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asiento, eventoNombre, precioUnitario);
 }
 
-// ========== VALIDACIÓN DE INE CON CAMPO SEXO VISIBLE ==========
+// ========== VALIDACIÓN DE INE ==========
 function mostrarModalValidacionINE(callback) {
   const modal = document.createElement('div');
   modal.id = 'ineModal';
@@ -363,7 +356,7 @@ function mostrarModalValidacionINE(callback) {
     callback(false);
   };
 
-  // ===== FORMULARIO DE VALIDACIÓN CON LIMPIEZA Y SEXO =====
+  // ===== FORMULARIO DE VALIDACIÓN =====
   document.getElementById('ineFormModal').onsubmit = async (e) => {
     e.preventDefault();
     
@@ -571,16 +564,15 @@ function mostrarBoletoModal(boletoHTML, urlDescarga) {
 async function iniciarCompra(eventoId, esPreventa, eventoNombre, precioUnitario) {
   if (!currentUser) {
     showToast('Inicia sesión para comprar', 'warning');
-    location.href = '/login.html';
+    window.location.href = '/login.html';
     return;
   }
   mostrarModalCompra(eventoId, esPreventa, eventoNombre, precioUnitario);
 }
 
-// ========== CARGAR EVENTOS ==========
+// ========== CARGAR EVENTOS (CORREGIDO - SIN ERROR imagen is not defined) ==========
 async function cargarEventos() {
   const container = document.getElementById('eventosContainer');
-  if (!container) return;
   container.innerHTML = '<div class="loader"><div class="spinner"></div><p>Cargando eventos...</p></div>';
   try {
     const eventos = await API.getEventos();
@@ -595,29 +587,31 @@ async function cargarEventos() {
       const precioPreventa = e.precio_preventa || e.precio_normal;
       const badge = e.es_preventa ? '<span class="badge-preventa">PREVENTA</span>' : '';
       
-      // ===== CORRECCIÓN: Mostrar imagen desde BD correctamente =====
+      // ===== IMAGEN DEL EVENTO (CORREGIDO) =====
       let imagenHtml = '';
-      if (e.imagen_url) {
-        imagenHtml = `<img src="${e.imagen_url}" alt="${e.nombre_evento}" style="width:100%; height:180px; object-fit:cover; border-radius:8px 8px 0 0;">`;
-      } else if (e.tiene_imagen) {
-        imagenHtml = `<img src="/api/eventos/imagen/${e.id_evento}" alt="${e.nombre_evento}" style="width:100%; height:180px; object-fit:cover; border-radius:8px 8px 0 0;">`;
+      if (e.imagen_url && e.tiene_imagen) {
+        imagenHtml = `<img src="${e.imagen_url}" style="width:100%; height:180px; object-fit:cover; border-radius:8px 8px 0 0;" alt="${e.nombre_evento}">`;
       } else {
-        imagenHtml = `<div style="width:100%; height:180px; background:rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center; border-radius:8px 8px 0 0;"><i class="fas fa-image" style="color:#666; font-size:3rem;"></i></div>`;
+        imagenHtml = `<div style="width:100%; height:180px; background:rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center; border-radius:8px 8px 0 0; border-bottom:2px solid rgba(255,0,0,0.3);">
+          <i class="fas fa-image" style="color:#666; font-size:3rem; opacity:0.5;"></i>
+        </div>`;
       }
-
+      
       html += `
         <div class="evento-card" data-event-id="${e.id_evento}" data-event-date="${e.fecha_evento}" data-is-preventa="${e.es_preventa}" data-precio="${precioNormal}" data-precio-preventa="${precioPreventa}" data-preventa-inicio="${e.preventa_inicio || ''}" data-preventa-fin="${e.preventa_fin || ''}">
           ${imagenHtml}
-          <div class="evento-info">
-            <h3 class="evento-titulo">${e.nombre_evento} ${badge}</h3>
-            <p><i class="fas fa-map-marker-alt"></i> ${e.ubicacion}</p>
-            <p><i class="far fa-calendar"></i> ${fecha} - ${e.hora_evento.substring(0,5)}</p>
-            <div class="precio">$${precioNormal}</div>
+          <div class="evento-info" style="padding: 1rem;">
+            <h3 class="evento-titulo" style="font-family:'Orbitron',sans-serif; color:var(--red-light);">${e.nombre_evento} ${badge}</h3>
+            <p style="color:var(--text-secondary); margin:0.3rem 0;"><i class="fas fa-map-marker-alt" style="color:var(--red-main);"></i> ${e.ubicacion}</p>
+            <p style="color:var(--text-secondary); margin:0.3rem 0;"><i class="far fa-calendar" style="color:var(--red-main);"></i> ${fecha} - ${e.hora_evento.substring(0,5)}</p>
+            <div class="precio" style="font-size:1.2rem; font-weight:bold; color:var(--red-light); margin:0.5rem 0;">$${precioNormal}</div>
             <div class="countdown-container" style="margin: 0.8rem 0; padding: 0.5rem; background: rgba(0,0,0,0.3); border-radius: 0.8rem;">
               <div style="text-align:center; font-size:0.8rem; color:#aaa; margin-bottom:0.3rem;">⏳ Cargando...</div>
               <div id="countdown-${e.id_evento}" style="text-align:center; font-size:1rem; font-weight:bold; color:#ff3333;">Cargando...</div>
             </div>
-            <button class="btn-comprar" data-id="${e.id_evento}" data-preventa="${e.es_preventa}" data-nombre="${e.nombre_evento}" data-precio="${precioNormal}" data-precio-preventa="${precioPreventa}">Comprar Boleto</button>
+            <button class="btn-comprar" data-id="${e.id_evento}" data-preventa="${e.es_preventa}" data-nombre="${e.nombre_evento}" data-precio="${precioNormal}" data-precio-preventa="${precioPreventa}" style="width:100%; padding:0.8rem; background:linear-gradient(135deg, #cc0000, #ff0000); color:white; border:none; border-radius:2rem; font-weight:bold; cursor:pointer; transition:0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+              Comprar Boleto
+            </button>
           </div>
         </div>
       `;
@@ -647,7 +641,7 @@ async function cargarEventos() {
       };
     });
   } catch (err) {
-    console.error('❌ Error en cargarEventos:', err);
+    console.error('❌ Error cargando eventos:', err);
     showToast('Error al cargar eventos: ' + err.message, 'error');
     container.innerHTML = `<p style="text-align:center; color:var(--red-light);">❌ Error al cargar eventos: ${err.message}</p>`;
   }

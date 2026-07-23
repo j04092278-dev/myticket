@@ -79,9 +79,8 @@ const createEvento = async (req, res) => {
   if (req.file) {
     try {
       imagenData = fs.readFileSync(req.file.path);
-      // Eliminar el archivo temporal después de leerlo
       fs.unlinkSync(req.file.path);
-      imagenUrl = `/api/eventos/imagen/${Date.now()}`; // URL temporal (se reemplazará después)
+      imagenUrl = `/api/eventos/imagen/${Date.now()}`;
     } catch (err) {
       console.error('❌ Error al leer archivo:', err);
     }
@@ -98,7 +97,7 @@ const createEvento = async (req, res) => {
         capacidad_total, capacidad_total,
         precio_normal, precio_preventa || null, 
         es_preventa || false, 
-        imagenData, // Guardamos la imagen en la BD
+        imagenData,
         imagenUrl,
         preventa_inicio || null, 
         preventa_fin || null
@@ -106,15 +105,11 @@ const createEvento = async (req, res) => {
     );
 
     const eventId = result.rows[0].id_evento;
-    // Actualizar imagen_url con el ID real
     if (imagenData) {
-      await pool.query(
-        'UPDATE evento SET imagen_url = $1 WHERE id_evento = $2',
-        [`/api/eventos/${eventId}/imagen`, eventId]
-      );
+      const realUrl = `/api/eventos/${eventId}/imagen`;
+      await pool.query('UPDATE evento SET imagen_url = $1 WHERE id_evento = $2', [realUrl, eventId]);
     }
 
-    // Obtener el evento creado para devolverlo
     const newEvento = await pool.query('SELECT * FROM evento WHERE id_evento = $1', [eventId]);
     res.status(201).json({ success: true, evento: newEvento.rows[0] });
   } catch (error) {
@@ -127,7 +122,6 @@ const createEvento = async (req, res) => {
 const deleteEvento = async (req, res) => {
   const { id } = req.params;
   try {
-    // La imagen se elimina automáticamente con el registro
     await pool.query('DELETE FROM evento WHERE id_evento = $1', [id]);
     res.json({ success: true });
   } catch (error) {
