@@ -201,7 +201,6 @@ function mostrarModalCompra(eventoId, esPreventa, eventoNombre, precioUnitario) 
   };
 }
 
-// ========== PROCEDER CON COMPRA ==========
 async function procederConCompra(eventoId, esPreventa, eventoNombre, precioUnitario, cantidad, zona, asiento) {
   if (!currentUser) {
     showToast('Inicia sesión para comprar', 'warning');
@@ -411,7 +410,7 @@ function mostrarModalValidacionINE(callback) {
   };
 }
 
-// ========== MODAL PAGO ==========
+// ========== MODAL PAGO (CORREGIDO) ==========
 function mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asiento, eventoNombre, precioUnitario) {
   const total = precioUnitario * cantidad;
   const modal = document.createElement('div');
@@ -480,31 +479,55 @@ function mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asie
   `;
   document.body.appendChild(modal);
   document.getElementById('cerrarPago').onclick = () => modal.remove();
+
+  // ===== EVENTO SUBMIT DEL FORMULARIO DE PAGO (CORREGIDO) =====
   document.getElementById('pagoForm').onsubmit = async (e) => {
     e.preventDefault();
-    const nombre = document.getElementById('nombreTarjeta').value;
-    const num_tarjeta = document.getElementById('numTarjeta').value;
-    const fecha = document.getElementById('fechaVencimiento').value;
-    const cv = document.getElementById('cvv').value;
+    console.log('🔄 Procesando pago...');
+
+    const nombre = document.getElementById('nombreTarjeta').value.trim();
+    const num_tarjeta = document.getElementById('numTarjeta').value.trim();
+    const fecha = document.getElementById('fechaVencimiento').value.trim();
+    const cv = document.getElementById('cvv').value.trim();
     const factor_tarjeta = document.getElementById('tipoTarjeta').value;
+
     if (!nombre || !num_tarjeta || !fecha || !cv) {
       showToast('Por favor, completa todos los campos de la tarjeta', 'warning');
       return;
     }
+
+    // Mostrar loader
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.textContent;
+    submitBtn.textContent = '⏳ Procesando...';
+    submitBtn.disabled = true;
+
     try {
       const res = await API.comprarBoleto(eventoId, cantidad, zona, asiento, {
         num_tarjeta,
         cv,
         factor_tarjeta
       }, tipoPrecio);
+
       if (res.success) {
         modal.remove();
+        // Mostrar boleto con el HTML personalizado
         mostrarBoletoModal(res.boleto.personalizado, res.boleto.url);
         showToast(`✅ Compra exitosa! Código: ${res.boleto.codigo}`, 'success');
-        setTimeout(() => window.location.href = '/mis-boletos.html', 3000);
+        // Redirigir después de 3 segundos
+        setTimeout(() => {
+          window.location.href = '/mis-boletos.html';
+        }, 3000);
+      } else {
+        showToast('❌ Error en el pago: ' + (res.error || 'Error desconocido'), 'error');
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
       }
     } catch (err) {
+      console.error('❌ Error en pago:', err);
       showToast('❌ Error en el pago: ' + err.message, 'error');
+      submitBtn.textContent = originalText;
+      submitBtn.disabled = false;
     }
   };
 }
@@ -570,7 +593,7 @@ async function iniciarCompra(eventoId, esPreventa, eventoNombre, precioUnitario)
   mostrarModalCompra(eventoId, esPreventa, eventoNombre, precioUnitario);
 }
 
-// ========== CARGAR EVENTOS (CORREGIDO - SIN ERROR imagen is not defined) ==========
+// ========== CARGAR EVENTOS ==========
 async function cargarEventos() {
   const container = document.getElementById('eventosContainer');
   container.innerHTML = '<div class="loader"><div class="spinner"></div><p>Cargando eventos...</p></div>';
@@ -587,9 +610,7 @@ async function cargarEventos() {
       const precioPreventa = e.precio_preventa || e.precio_normal;
       const badge = e.es_preventa ? '<span class="badge-preventa">PREVENTA</span>' : '';
       
-      // ===== IMAGEN DEL EVENTO (CORREGIDO) =====
       let imagenHtml = '';
-      // Usamos e.tiene_imagen para saber si existe imagen en la BD
       if (e.imagen_url && e.tiene_imagen) {
         imagenHtml = `<img src="${e.imagen_url}" style="width:100%; height:180px; object-fit:cover; border-radius:8px 8px 0 0;" alt="${e.nombre_evento}">`;
       } else {

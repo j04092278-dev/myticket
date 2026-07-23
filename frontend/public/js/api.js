@@ -3,7 +3,7 @@ class API {
     const res = await fetch(`/api${endpoint}`, {
       ...options,
       headers: { 'Content-Type': 'application/json', ...options.headers },
-      credentials: 'include'  // Envía cookies
+      credentials: 'include'
     });
     if (!res.ok) {
       let errorMsg = `Error ${res.status}`;
@@ -23,12 +23,27 @@ class API {
   }
 
   static getEventos() { return this.request('/eventos'); }
+  
   static comprarBoleto(eventoId, cantidad, zona, asiento, datosTarjeta, tipoPrecio) {
     return this.request('/boletos/comprar', {
       method: 'POST',
-      body: JSON.stringify({ eventoId, cantidad, zona, asiento, tipoPrecio, ...datosTarjeta })
+      body: JSON.stringify({ 
+        eventoId, 
+        cantidad, 
+        zona, 
+        asiento, 
+        tipoPrecio, 
+        ...datosTarjeta 
+      })
     });
   }
+  
   static getMisBoletos() { return this.request('/boletos/mis-boletos'); }
-  static crearEvento(data) { return this.request('/eventos', { method: 'POST', body: JSON.stringify(data) }); }
+  
+  static crearEvento(data) { 
+    return this.request('/eventos', { 
+      method: 'POST', 
+      body: JSON.stringify(data) 
+    }); 
+  }
 }

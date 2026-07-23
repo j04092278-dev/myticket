@@ -7,8 +7,20 @@ const { encrypt } = require('../utils/encrypt');
 const { sendTicketEmail } = require('../utils/email');
 
 const generarBoletoPersonalizado = async (data) => {
-  const { codigo, evento, nombre_usuario, fecha, ubicacion, zona, asiento, precio, imagen_url } = data;
+  const { codigo, evento, nombre_usuario, fecha, ubicacion, zona, asiento, precio, imagen_url, eventoId } = data;
   const qrBase64 = await QRCode.toDataURL(JSON.stringify({ codigo, evento, usuario: nombre_usuario }));
+
+  // Obtener la imagen de la base de datos si existe
+  let imagenData = null;
+  if (eventoId) {
+    try {
+      const result = await pool.query('SELECT imagen_data FROM evento WHERE id_evento = $1', [eventoId]);
+      if (result.rows.length > 0 && result.rows[0].imagen_data) {
+        imagenData = result.rows[0].imagen_data;
+      }
+    } catch (e) {}
+  }
+
   const colors = {
     primary: '#ff0000',
     secondary: '#cc0000',
@@ -18,16 +30,33 @@ const generarBoletoPersonalizado = async (data) => {
     text: '#FFFFFF',
     textSecondary: '#9CA3AF',
   };
+
   let fondoStyle = `background: linear-gradient(145deg, ${colors.dark}, ${colors.bg});`;
-  if (imagen_url) {
-    fondoStyle = `background-image: url('${imagen_url}'); background-size: cover; background-position: center; position: relative;`;
+  let imagenStyle = '';
+
+  if (imagenData) {
+    const base64Image = `data:image/jpeg;base64,${imagenData.toString('base64')}`;
+    fondoStyle = `background: ${colors.dark}; position: relative;`;
+    imagenStyle = `
+      <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+           background-image: url('${base64Image}'); background-size: cover; background-position: center; 
+           opacity: 0.3; z-index: 0; border-radius: 16px;"></div>
+    `;
+  } else if (imagen_url) {
+    fondoStyle = `background: ${colors.dark}; position: relative;`;
+    imagenStyle = `
+      <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+           background-image: url('${imagen_url}'); background-size: cover; background-position: center; 
+           opacity: 0.3; z-index: 0; border-radius: 16px;"></div>
+    `;
   }
+
   const html = `
-    <div style="${fondoStyle} color: ${colors.text}; padding: 24px; border-radius: 16px; border: 2px solid ${colors.primary}; max-width: 400px; margin: 0 auto; font-family: 'Poppins', sans-serif; box-shadow: 0 0 40px rgba(255,0,0,0.3); position: relative; overflow: hidden; ${imagen_url ? 'min-height: 450px; display: flex; flex-direction: column; justify-content: center;' : ''}">
-      ${imagen_url ? `<div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10,10,10,0.7); z-index: 0;"></div>` : ''}
+    <div style="${fondoStyle} color: ${colors.text}; padding: 24px; border-radius: 16px; border: 2px solid ${colors.primary}; max-width: 400px; margin: 0 auto; font-family: 'Poppins', sans-serif; box-shadow: 0 0 40px rgba(255,0,0,0.3); position: relative; overflow: hidden;">
+      ${imagenStyle}
       <div style="position: relative; z-index: 1;">
         <div style="text-align: center; margin-bottom: 15px;">
-          <h2 style="color: ${colors.light}; font-size: 1.8rem; margin: 0;">🎫 MyTicket</h2>
+          <h2 style="color: ${colors.light}; font-size: 1.8rem; margin: 0; font-family: 'Orbitron', sans-serif;">🎫 MyTicket</h2>
           <div style="border-bottom: 2px dashed ${colors.primary}; margin: 10px 0;"></div>
         </div>
         <div style="padding: 10px;">
@@ -48,10 +77,12 @@ const generarBoletoPersonalizado = async (data) => {
       </div>
     </div>
   `;
+
   const fileName = `boleto_${codigo}.html`;
   const filePath = path.join(__dirname, '../../public/boletos', fileName);
   if (!fs.existsSync(path.dirname(filePath))) fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, html);
+
   return { html, filePath: `/boletos/${fileName}` };
 };
 
@@ -60,11 +91,13 @@ const comprarBoletos = async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+
     const evento = await client.query('SELECT * FROM evento WHERE id_evento = $1 FOR UPDATE', [eventoId]);
     if (evento.rows.length === 0) throw new Error('Evento no existe');
     const eventoData = evento.rows[0];
     if (eventoData.boletos_disponibles < cantidad) throw new Error('Boletos insuficientes');
 
+    // Verificar INE y verificación facial
     const ineCheck = await client.query(
       'SELECT validado, facial_verificado FROM ine_validacion WHERE id_cliente = $1',
       [req.userId]
@@ -81,7 +114,7 @@ const comprarBoletos = async (req, res) => {
       : eventoData.precio_normal;
 
     const codigoUnico = crypto.randomBytes(8).toString('hex').toUpperCase();
-    const qrCode = await QRCode.toDataURL(JSON.stringify({ codigo: codigoUnico, evento: eventoData.nombre_evento, usuario: req.userId }));
+    const qrCode = await QRCode.toDataURL(JSON.stringify({ codigo: codigoUnico, evento: eventoData.nombre_evento, usuario: req.userEmail }));
 
     const boleto = await client.query(
       `INSERT INTO boletos (id_evento, id_cliente, zona, asiento, codigo_unico, qr_codigo, estatus, tipo_precio)
@@ -120,8 +153,6 @@ const comprarBoletos = async (req, res) => {
     const nombre_usuario = userData.rows[0].nombre;
     const email_usuario = userData.rows[0].correo_usuario;
 
-    const imagen_url = eventoData.imagen_url || null;
-
     const boletoPersonalizado = await generarBoletoPersonalizado({
       codigo: codigoUnico,
       evento: eventoData.nombre_evento,
@@ -131,22 +162,15 @@ const comprarBoletos = async (req, res) => {
       zona,
       asiento,
       precio: precioUnitario,
-      imagen_url: imagen_url
+      imagen_url: eventoData.imagen_url,
+      eventoId: eventoId
     });
 
-    // Enviar email con el boleto
+    // Enviar correo con el boleto (opcional)
     try {
-      await sendTicketEmail(
-        email_usuario,
-        nombre_usuario,
-        boletoPersonalizado.html,
-        boletoPersonalizado.filePath,
-        eventoData.nombre_evento,
-        codigoUnico
-      );
-    } catch (emailError) {
-      console.error('❌ Error enviando email:', emailError);
-      // No fallamos la compra por error de email
+      await sendTicketEmail(email_usuario, nombre_usuario, boletoPersonalizado.html, boletoPersonalizado.filePath, eventoData.nombre_evento, codigoUnico);
+    } catch (emailErr) {
+      console.error('❌ Error al enviar correo:', emailErr);
     }
 
     res.json({
@@ -166,7 +190,7 @@ const comprarBoletos = async (req, res) => {
     });
   } catch (error) {
     await client.query('ROLLBACK');
-    console.error(error);
+    console.error('❌ Error en comprarBoletos:', error);
     res.status(400).json({ error: error.message });
   } finally {
     client.release();
@@ -178,7 +202,8 @@ const getMisBoletos = async (req, res) => {
     const result = await pool.query(
       `SELECT b.id_boleto, b.codigo_unico, b.zona, b.asiento, b.estatus, b.qr_codigo, b.tipo_precio,
               e.nombre_evento, e.fecha_evento, e.ubicacion, v.precio_pagado,
-              c.nombre as nombre_usuario, e.imagen_url
+              c.nombre as nombre_usuario, e.imagen_url,
+              CASE WHEN e.imagen_data IS NOT NULL THEN true ELSE false END as tiene_imagen
        FROM boletos b
        JOIN evento e ON b.id_evento = e.id_evento
        JOIN venta v ON b.id_boleto = v.id_boleto
@@ -189,7 +214,7 @@ const getMisBoletos = async (req, res) => {
     );
     res.json(result.rows);
   } catch (error) {
-    console.error(error);
+    console.error('❌ Error en getMisBoletos:', error);
     res.status(500).json({ error: 'Error al obtener boletos' });
   }
 };
