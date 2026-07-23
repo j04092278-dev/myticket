@@ -42,29 +42,29 @@ const login = async (req, res) => {
       { expiresIn: '7d' }
     );
 
-    // ===== CONFIGURACIÓN DE COOKIE CON DOMINIO DINÁMICO =====
+    // ===== CONFIGURACIÓN DE COOKIE =====
     const isProduction = process.env.NODE_ENV === 'production';
-    // Obtener el dominio del host (ej: myticket.onrender.com)
     const host = req.get('host');
-    // Si es un dominio de Render (termina en onrender.com), usar el dominio base
     let domain = undefined;
     if (isProduction && host && host.includes('onrender.com')) {
-      domain = '.onrender.com'; // Permite compartir cookie entre subdominios
+      domain = '.onrender.com';
     }
 
     res.cookie('token', token, {
       httpOnly: true,
-      secure: isProduction,   // true en producción (HTTPS)
-      sameSite: 'lax',        // Lax permite envío en navegación entre páginas del mismo sitio
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax', // 'none' para cross-site en producción
       maxAge: 7 * 24 * 60 * 60 * 1000,
       path: '/',
-      domain: domain          // undefined para el dominio exacto, o .onrender.com para compartir
+      domain: domain
     });
 
     console.log(`✅ Cookie token establecida para: ${user.correo_usuario} (domain: ${domain || 'none'})`);
 
+    // También devolvemos el token en el body para que el frontend pueda guardarlo en localStorage
     res.json({
       success: true,
+      token: token, // <-- Enviamos token en la respuesta
       user: {
         id: user.id_cliente,
         nombre: user.nombre,
@@ -88,7 +88,7 @@ const logout = (req, res) => {
   res.clearCookie('token', {
     httpOnly: true,
     secure: isProduction,
-    sameSite: 'lax',
+    sameSite: isProduction ? 'none' : 'lax',
     path: '/',
     domain: domain
   });
@@ -97,10 +97,24 @@ const logout = (req, res) => {
 
 const getMe = async (req, res) => {
   try {
+    // Primero intentar desde req.userId (seteado por authMiddleware)
     if (!req.userId) {
-      console.log('❌ getMe: userId no presente en la petición');
-      return res.status(401).json({ error: 'No autenticado' });
+      // Si no, intentar obtener token del header Authorization
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring(7);
+        try {
+          const decoded = jwt.verify(token, process.env.JWT_SECRET);
+          req.userId = decoded.id;
+          req.isAdmin = decoded.isAdmin || false;
+        } catch (err) {
+          return res.status(401).json({ error: 'Token inválido' });
+        }
+      } else {
+        return res.status(401).json({ error: 'No autenticado' });
+      }
     }
+
     const result = await pool.query(
       'SELECT id_cliente, nombre, correo_usuario, es_admin FROM cliente WHERE id_cliente = $1',
       [req.userId]

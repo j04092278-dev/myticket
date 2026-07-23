@@ -1,10 +1,8 @@
 const jwt = require('jsonwebtoken');
 
 const authMiddleware = (req, res, next) => {
-  // Intentar obtener token desde cookie
   let token = req.cookies.token;
   
-  // Si no está en cookie, buscar en header Authorization
   if (!token) {
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
