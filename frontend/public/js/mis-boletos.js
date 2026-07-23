@@ -7,19 +7,13 @@ async function loadUser() {
     console.log('📥 Respuesta de getCurrentUser:', res);
     if (res && res.user) {
       currentUser = res.user;
-      console.log('✅ Usuario autenticado:', currentUser);
-      const userNameEl = document.getElementById('userName');
-      if (userNameEl) userNameEl.innerText = currentUser.nombre.split(' ')[0];
-      const loginBtn = document.getElementById('loginBtn');
-      const logoutBtn = document.getElementById('logoutBtn');
-      if (loginBtn) loginBtn.style.display = 'none';
-      if (logoutBtn) logoutBtn.style.display = 'inline-block';
+      document.getElementById('userName').innerText = currentUser.nombre.split(' ')[0];
+      document.getElementById('loginBtn').style.display = 'none';
+      document.getElementById('logoutBtn').style.display = 'inline-block';
       cargarBoletos();
     } else {
-      console.warn('⚠️ Usuario no autenticado, redirigiendo a login');
-      // Guardar la URL actual para redirigir después del login
-      const redirect = encodeURIComponent(window.location.pathname);
-      window.location.href = `/login.html?redirect=${redirect}`;
+      console.log('⚠️ Usuario no autenticado, redirigiendo a login');
+      window.location.href = '/login.html?redirect=mis-boletos';
     }
   } catch(e) {
     console.error('❌ Error de autenticación:', e);
@@ -82,8 +76,6 @@ async function cargarBoletos() {
   } catch (err) {
     console.error('❌ Error cargando boletos:', err);
     if (err.message && err.message.includes('401')) {
-      // Si el token es inválido, limpiar localStorage y redirigir
-      localStorage.removeItem('token');
       window.location.href = '/login.html?redirect=mis-boletos';
     } else {
       showToast('Error al cargar tus boletos', 'error');

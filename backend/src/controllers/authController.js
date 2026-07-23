@@ -42,18 +42,19 @@ const login = async (req, res) => {
       { expiresIn: '7d' }
     );
 
-    // ===== CONFIGURACIÓN DE COOKIE =====
+    // ===== COOKIE CONFIGURACIÓN DEFINITIVA =====
     const isProduction = process.env.NODE_ENV === 'production';
     const host = req.get('host');
     let domain = undefined;
+    // Si estamos en Render y el host termina en onrender.com, usamos el dominio base
     if (isProduction && host && host.includes('onrender.com')) {
       domain = '.onrender.com';
     }
 
     res.cookie('token', token, {
       httpOnly: true,
-      secure: isProduction,
-      sameSite: isProduction ? 'none' : 'lax', // 'none' para cross-site en producción
+      secure: isProduction,   // true en producción (HTTPS)
+      sameSite: 'lax',        // Lax permite envío en navegación entre páginas del mismo sitio
       maxAge: 7 * 24 * 60 * 60 * 1000,
       path: '/',
       domain: domain
@@ -61,10 +62,8 @@ const login = async (req, res) => {
 
     console.log(`✅ Cookie token establecida para: ${user.correo_usuario} (domain: ${domain || 'none'})`);
 
-    // También devolvemos el token en el body para que el frontend pueda guardarlo en localStorage
     res.json({
       success: true,
-      token: token, // <-- Enviamos token en la respuesta
       user: {
         id: user.id_cliente,
         nombre: user.nombre,
@@ -88,7 +87,7 @@ const logout = (req, res) => {
   res.clearCookie('token', {
     httpOnly: true,
     secure: isProduction,
-    sameSite: isProduction ? 'none' : 'lax',
+    sameSite: 'lax',
     path: '/',
     domain: domain
   });
@@ -97,24 +96,10 @@ const logout = (req, res) => {
 
 const getMe = async (req, res) => {
   try {
-    // Primero intentar desde req.userId (seteado por authMiddleware)
     if (!req.userId) {
-      // Si no, intentar obtener token del header Authorization
-      const authHeader = req.headers.authorization;
-      if (authHeader && authHeader.startsWith('Bearer ')) {
-        const token = authHeader.substring(7);
-        try {
-          const decoded = jwt.verify(token, process.env.JWT_SECRET);
-          req.userId = decoded.id;
-          req.isAdmin = decoded.isAdmin || false;
-        } catch (err) {
-          return res.status(401).json({ error: 'Token inválido' });
-        }
-      } else {
-        return res.status(401).json({ error: 'No autenticado' });
-      }
+      console.log('❌ getMe: userId no presente');
+      return res.status(401).json({ error: 'No autenticado' });
     }
-
     const result = await pool.query(
       'SELECT id_cliente, nombre, correo_usuario, es_admin FROM cliente WHERE id_cliente = $1',
       [req.userId]

@@ -40,9 +40,9 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
 }));
 
-// ===== CORRECCIÓN DEFINITIVA DE TRUST PROXY =====
-// Usamos '1' para confiar solo en el primer proxy (el de Render)
-app.set('trust proxy', 1);
+// ===== CORRECCIÓN DE TRUST PROXY =====
+// 'loopback, linklocal, uniquelocal' es seguro y permite proxies de confianza
+app.set('trust proxy', 'loopback, linklocal, uniquelocal');
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json({ limit: '10mb' }));

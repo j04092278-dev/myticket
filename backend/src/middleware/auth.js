@@ -2,7 +2,6 @@ const jwt = require('jsonwebtoken');
 
 const authMiddleware = (req, res, next) => {
   let token = req.cookies.token;
-  
   if (!token) {
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -11,7 +10,7 @@ const authMiddleware = (req, res, next) => {
   }
 
   if (!token) {
-    console.log(`❌ No hay token en la solicitud a ${req.method} ${req.path}`);
+    console.log(`❌ No hay token en ${req.method} ${req.path}`);
     return res.status(401).json({ error: 'No autorizado - token no encontrado' });
   }
 
@@ -20,10 +19,10 @@ const authMiddleware = (req, res, next) => {
     req.userId = decoded.id;
     req.isAdmin = decoded.isAdmin || false;
     req.userEmail = decoded.email;
-    console.log(`✅ Token verificado para: ${decoded.email} (ruta: ${req.path})`);
+    console.log(`✅ Token verificado para ${decoded.email} en ${req.path}`);
     next();
   } catch (err) {
-    console.error(`❌ Error verificando token en ${req.path}:`, err.message);
+    console.error(`❌ Error token en ${req.path}:`, err.message);
     return res.status(401).json({ error: 'Token inválido o expirado' });
   }
 };
