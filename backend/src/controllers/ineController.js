@@ -78,19 +78,20 @@ async function compararCarasAWS(imagenINE, imagenSelfie) {
 const validarINEConImagen = async (req, res) => {
   const { numero_ine, curp, nombre_completo, fecha_nacimiento, sexo, entidad_emision } = req.body;
   try {
-    // ===== VALIDACIÓN CON LOGS =====
     console.log('📥 Datos recibidos:', { numero_ine, curp, nombre_completo, fecha_nacimiento, sexo, entidad_emision });
 
-    // VALIDAR CURP
-    if (!validateCURP(curp)) {
+    // VALIDAR CURP (con logs)
+    const curpValido = validateCURP(curp);
+    if (!curpValido) {
       console.log(`❌ CURP inválida: ${curp}`);
       return res.status(400).json({ 
-        error: `CURP inválida. Verifica el formato y el dígito verificador. Revisa los logs para más detalles.` 
+        error: `CURP inválida. Verifica el formato. Revisa los logs para más detalles.` 
       });
     }
 
     // VALIDAR INE
-    if (!validateINE(numero_ine)) {
+    const ineValido = validateINE(numero_ine);
+    if (!ineValido) {
       console.log(`❌ Número de INE inválido: ${numero_ine}`);
       return res.status(400).json({ error: 'Número de INE inválido. Verifica formato.' });
     }

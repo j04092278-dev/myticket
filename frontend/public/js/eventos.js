@@ -24,7 +24,6 @@ document.getElementById('logoutBtn').onclick = async () => {
   location.href = '/';
 };
 
-// ========== VERIFICACIÓN DE INE ==========
 async function verificarINE() {
   try {
     const res = await API.request('/ine/estado');
@@ -34,7 +33,6 @@ async function verificarINE() {
   }
 }
 
-// ========== CUENTA REGRESIVA ==========
 function getTimeRemaining(targetDate) {
   const now = new Date().getTime();
   const target = new Date(targetDate).getTime();
@@ -136,7 +134,6 @@ function iniciarCuentasRegresivas() {
   });
 }
 
-// ========== MODALES ==========
 function mostrarModalCompra(eventoId, esPreventa, eventoNombre, precioUnitario) {
   const modal = document.createElement('div');
   modal.id = 'compraModal';
@@ -229,7 +226,6 @@ async function procederConCompra(eventoId, esPreventa, eventoNombre, precioUnita
   mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asiento, eventoNombre, precioUnitario);
 }
 
-// ========== VALIDACIÓN DE INE CON CÁMARA Y LIMPIEZA DE DATOS ==========
 function mostrarModalValidacionINE(callback) {
   const modal = document.createElement('div');
   modal.id = 'ineModal';
@@ -344,17 +340,17 @@ function mostrarModalValidacionINE(callback) {
     callback(false);
   };
 
-  // ===== FORMULARIO DE VALIDACIÓN CON LIMPIEZA DE DATOS =====
+  // ===== FORMULARIO DE VALIDACIÓN CON LIMPIEZA =====
   document.getElementById('ineFormModal').onsubmit = async (e) => {
     e.preventDefault();
     
-    // ===== CORRECCIÓN: NO MODIFICAR EL CURP, SOLO LIMPIAR ESPACIOS =====
-    const numeroINE = document.getElementById('numINE').value.trim();
-    const curp = document.getElementById('curpINE').value.trim().toUpperCase();
+    // ===== LIMPIEZA DE DATOS =====
+    const numeroINE = document.getElementById('numINE').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const curp = document.getElementById('curpINE').value.trim().toUpperCase().replace(/[^A-ZÑ0-9]/g, '');
     const nombreCompleto = document.getElementById('nombreINE').value.trim();
     const fechaNacimiento = document.getElementById('fechaNacINE').value;
     
-    console.log('📤 Datos enviados desde frontend (validación INE):', { numeroINE, curp, nombreCompleto, fechaNacimiento });
+    console.log('📤 Datos enviados (frontend):', { numeroINE, curp, nombreCompleto, fechaNacimiento });
 
     const formData = new FormData();
     formData.append('numero_ine', numeroINE);
@@ -394,7 +390,6 @@ function mostrarModalValidacionINE(callback) {
   };
 }
 
-// ========== MODAL DE PAGO ==========
 function mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asiento, eventoNombre, precioUnitario) {
   const total = precioUnitario * cantidad;
   const modal = document.createElement('div');
@@ -551,7 +546,6 @@ async function iniciarCompra(eventoId, esPreventa, eventoNombre, precioUnitario)
   mostrarModalCompra(eventoId, esPreventa, eventoNombre, precioUnitario);
 }
 
-// ========== CARGAR EVENTOS ==========
 async function cargarEventos() {
   const container = document.getElementById('eventosContainer');
   container.innerHTML = '<div class="loader"><div class="spinner"></div><p>Cargando eventos...</p></div>';
@@ -615,7 +609,6 @@ async function cargarEventos() {
   }
 }
 
-// ========== INICIALIZACIÓN ==========
 loadUser();
 cargarEventos();
 if (typeof createStarField === 'function') createStarField();
