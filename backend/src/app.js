@@ -16,7 +16,6 @@ const pagoRoutes = require('./routes/pagoRoutes');
 
 const app = express();
 
-// ===== CORRECCIÓN PARA RENDER =====
 app.set('trust proxy', 'loopback');
 
 app.use(helmet({ contentSecurityPolicy: false }));
