@@ -589,6 +589,7 @@ async function cargarEventos() {
       
       // ===== IMAGEN DEL EVENTO (CORREGIDO) =====
       let imagenHtml = '';
+      // Usamos e.tiene_imagen para saber si existe imagen en la BD
       if (e.imagen_url && e.tiene_imagen) {
         imagenHtml = `<img src="${e.imagen_url}" style="width:100%; height:180px; object-fit:cover; border-radius:8px 8px 0 0;" alt="${e.nombre_evento}">`;
       } else {
