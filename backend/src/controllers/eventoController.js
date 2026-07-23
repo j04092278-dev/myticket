@@ -14,8 +14,8 @@ const storage = multer.diskStorage({
     cb(null, `evento_${Date.now()}${ext}`);
   }
 });
-const upload = multer({ 
-  storage, 
+const upload = multer({
+  storage,
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
@@ -66,21 +66,21 @@ const getEventoImagen = async (req, res) => {
 
 // ========== CREATE EVENTO ==========
 const createEvento = async (req, res) => {
-  const { 
-    nombre_evento, fecha_evento, hora_evento, ubicacion, 
-    capacidad_total, precio_normal, precio_preventa, 
-    es_preventa, preventa_inicio, preventa_fin 
+  const {
+    nombre_evento, fecha_evento, hora_evento, ubicacion,
+    capacidad_total, precio_normal, precio_preventa,
+    es_preventa, preventa_inicio, preventa_fin
   } = req.body;
-  
+
   let imagenData = null;
   let imagenUrl = null;
-  
-  // Si hay archivo, leerlo como binario
+
+  // Leer imagen del archivo temporal
   if (req.file) {
     try {
       imagenData = fs.readFileSync(req.file.path);
-      fs.unlinkSync(req.file.path);
-      imagenUrl = `/api/eventos/imagen/${Date.now()}`;
+      fs.unlinkSync(req.file.path); // Eliminar archivo temporal
+      imagenUrl = `/api/eventos/imagen/temp`; // Se actualizará después
     } catch (err) {
       console.error('❌ Error al leer archivo:', err);
     }
@@ -93,18 +93,19 @@ const createEvento = async (req, res) => {
         precio_normal, precio_preventa, es_preventa, imagen_data, imagen_url, preventa_inicio, preventa_fin)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id_evento`,
       [
-        nombre_evento, fecha_evento, hora_evento, ubicacion, 
+        nombre_evento, fecha_evento, hora_evento, ubicacion,
         capacidad_total, capacidad_total,
-        precio_normal, precio_preventa || null, 
-        es_preventa || false, 
+        precio_normal, precio_preventa || null,
+        es_preventa || false,
         imagenData,
         imagenUrl,
-        preventa_inicio || null, 
+        preventa_inicio || null,
         preventa_fin || null
       ]
     );
 
     const eventId = result.rows[0].id_evento;
+    // Actualizar la URL con el ID real
     if (imagenData) {
       const realUrl = `/api/eventos/${eventId}/imagen`;
       await pool.query('UPDATE evento SET imagen_url = $1 WHERE id_evento = $2', [realUrl, eventId]);

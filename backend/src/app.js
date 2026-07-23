@@ -16,8 +16,7 @@ const pagoRoutes = require('./routes/pagoRoutes');
 
 const app = express();
 
-// ===== CONFIGURACIÓN CORS PARA RENDER =====
-// Permitir cualquier origen en desarrollo, y en producción solo el frontend
+// ===== CORS CONFIGURACIÓN PARA RENDER =====
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5000',
@@ -28,7 +27,7 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Permitir peticiones sin origen (como Postman) o si el origen está permitido
+    // Permitir peticiones sin origen (ej. Postman) o si el origen está permitido
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
       callback(null, true);
@@ -36,10 +35,11 @@ app.use(cors({
       callback(new Error('No permitido por CORS'));
     }
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
 }));
 
-// ===== TRUST PROXY =====
 app.set('trust proxy', 'loopback');
 
 app.use(helmet({ contentSecurityPolicy: false }));
@@ -49,17 +49,20 @@ app.use(cookieParser());
 app.use(sanitizeInput);
 app.use(limiter);
 
+// Servir archivos estáticos
 app.use(express.static(path.join(__dirname, '../../frontend/public')));
 app.use(express.static(path.join(__dirname, '../../frontend/views')));
 app.use('/boletos', express.static(path.join(__dirname, '../../public/boletos')));
 app.use('/uploads', express.static(path.join(__dirname, '../../uploads')));
 
+// Rutas API
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/eventos', eventoRoutes);
 app.use('/api/boletos', boletoRoutes);
 app.use('/api/ine', ineRoutes);
 app.use('/api/pagos', pagoRoutes);
 
+// Ruta para el frontend (SPA)
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '../../frontend/views/index.html'));
 });

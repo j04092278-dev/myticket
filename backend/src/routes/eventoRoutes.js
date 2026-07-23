@@ -1,11 +1,11 @@
 const express = require('express');
-const { 
-  getEventos, 
+const {
+  getEventos,
   getEventoImagen,
-  createEvento, 
-  deleteEvento, 
-  getEventoStats, 
-  upload 
+  createEvento,
+  deleteEvento,
+  getEventoStats,
+  upload
 } = require('../controllers/eventoController');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
 

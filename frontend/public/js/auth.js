@@ -24,22 +24,22 @@ class Auth {
   }
 
   static async logout() {
-    await fetch('/api/auth/logout', { 
-      method: 'POST', 
-      credentials: 'include' 
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include'
     });
   }
 
   static async getCurrentUser() {
     try {
-      const res = await fetch('/api/auth/me', { 
-        credentials: 'include' 
+      const res = await fetch('/api/auth/me', {
+        credentials: 'include'
       });
       if (res.status === 401) return null;
       if (!res.ok) return null;
       return await res.json();
-    } catch { 
-      return null; 
+    } catch {
+      return null;
     }
   }
 }
