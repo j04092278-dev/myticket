@@ -340,11 +340,11 @@ function mostrarModalValidacionINE(callback) {
     callback(false);
   };
 
-  // ===== FORMULARIO DE VALIDACIÓN CON LIMPIEZA =====
+  // ===== FORMULARIO DE VALIDACIÓN =====
   document.getElementById('ineFormModal').onsubmit = async (e) => {
     e.preventDefault();
     
-    // ===== LIMPIEZA DE DATOS =====
+    // Limpieza de datos
     const numeroINE = document.getElementById('numINE').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
     const curp = document.getElementById('curpINE').value.trim().toUpperCase().replace(/[^A-ZÑ0-9]/g, '');
     const nombreCompleto = document.getElementById('nombreINE').value.trim();

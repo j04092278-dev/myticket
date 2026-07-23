@@ -80,12 +80,12 @@ const validarINEConImagen = async (req, res) => {
   try {
     console.log('📥 Datos recibidos:', { numero_ine, curp, nombre_completo, fecha_nacimiento, sexo, entidad_emision });
 
-    // VALIDAR CURP (con logs)
+    // VALIDAR CURP (solo formato)
     const curpValido = validateCURP(curp);
     if (!curpValido) {
       console.log(`❌ CURP inválida: ${curp}`);
       return res.status(400).json({ 
-        error: `CURP inválida. Verifica el formato. Revisa los logs para más detalles.` 
+        error: `CURP inválida. Verifica el formato (18 caracteres, 4 letras, 6 números, 6 alfanuméricos, 1 dígito).` 
       });
     }
 
