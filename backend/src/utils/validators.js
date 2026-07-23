@@ -57,7 +57,7 @@ function validateINE(numero) {
     return false;
   }
 
-  const regex = /^[0-9]{4}[A-Z]{3}[0-9]{6}[A-Z][0-9]{2}$/;
+ const regex = /^[A-ZÑ]{4}[0-9]{6}[A-Z0-9]{8}$/;
   if (!regex.test(clean)) {
     console.log('❌ Formato INE inválido');
     return false;
