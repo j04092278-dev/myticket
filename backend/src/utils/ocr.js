@@ -58,136 +58,163 @@ async function extraerTextoDeImagen(imagenPath, idioma = 'spa') {
 }
 
 /**
- * Extrae el CURP del texto (MÚLTIPLES ESTRATEGIAS)
+ * EXTRAE CURP: busca un patrón de 18 caracteres (4 letras, 6 dígitos, 6 alfanuméricos, 1 dígito)
+ * Ignora espacios, guiones y caracteres extra después del CURP.
  */
 function extraerCURP(texto) {
   if (!texto) return null;
-  
-  // 1. Buscar la palabra "CURP" y capturar el siguiente token alfanumérico de 18 caracteres
-  const regexCURP = /CURP\s*[:.]?\s*([A-ZÑ0-9]{18})/i;
-  let match = texto.match(regexCURP);
-  if (match) return match[1].toUpperCase();
-  
-  // 2. Buscar el patrón clásico de CURP (4 letras, 6 dígitos, 6 alfanuméricos, 1 dígito) incluso si está pegado a otros caracteres
-  const regexPatron = /\b([A-Z]{4}[0-9]{6}[A-Z0-9]{6}[0-9X])\b/;
-  match = texto.match(regexPatron);
-  if (match) return match[1].toUpperCase();
-  
-  // 3. Si falla, buscar cualquier secuencia de 18 caracteres que parezca CURP
-  const regexLax = /[A-Z]{4}[0-9]{6}[A-Z0-9]{6}[0-9X]/;
-  match = texto.match(regexLax);
-  if (match) return match[0].toUpperCase();
-  
-  return null;
+  // Buscar el patrón clásico de CURP: 4 letras, 6 números, 6 alfanuméricos, 1 número o X
+  const regex = /\b([A-Z]{4}[0-9]{6}[A-Z0-9]{6}[0-9X])\b/;
+  const match = texto.match(regex);
+  return match ? match[1].toUpperCase() : null;
 }
 
 /**
- * Extrae el nombre completo del texto (MÚLTIPLES ESTRATEGIAS)
+ * EXTRAE NOMBRE COMPLETO: busca "NOMBRE" y toma las siguientes líneas que parezcan nombre
+ * También busca líneas con mayúsculas que contengan al menos 3 palabras.
  */
 function extraerNombre(texto) {
   if (!texto) return null;
   const lines = texto.split('\n').map(l => l.trim()).filter(l => l.length > 0);
   
-  // 1. Buscar la palabra "NOMBRE" y capturar las siguientes líneas con mayúsculas
+  // 1. Buscar "NOMBRE" y capturar el texto que sigue
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (line.toUpperCase().includes('NOMBRE')) {
-      let nombreCompleto = '';
-      // Buscar en las siguientes líneas (hasta 5) que contengan mayúsculas y al menos 2 palabras
+    const line = lines[i].toUpperCase();
+    if (line.includes('NOMBRE') || line.includes('NOMBRES')) {
+      // El nombre puede estar en la misma línea o en las siguientes
+      let nombrePartes = [];
+      // Si la misma línea tiene texto después de "NOMBRE"
+      const resto = lines[i].replace(/NOMBRE\s*[:.]?\s*/i, '');
+      if (resto.length > 3) nombrePartes.push(resto);
+      // Buscar en las siguientes líneas que estén en mayúsculas y tengan al menos 3 caracteres
       for (let j = i + 1; j < Math.min(i + 6, lines.length); j++) {
-        const siguiente = lines[j];
-        if (siguiente.match(/^[A-ZÁÉÍÓÚÑ\s]{5,}$/) && siguiente.split(/\s+/).length >= 2) {
-          nombreCompleto += ' ' + siguiente;
+        const sigLine = lines[j];
+        // Si la línea es mayúscula y tiene al menos 3 palabras, es parte del nombre
+        if (sigLine.match(/^[A-ZÁÉÍÓÚÑ\s]{3,}$/) && sigLine.split(/\s+/).length >= 2) {
+          nombrePartes.push(sigLine);
         } else {
           break;
         }
       }
-      if (nombreCompleto.trim().length > 5) {
-        return nombreCompleto.trim();
+      if (nombrePartes.length > 0) {
+        return nombrePartes.join(' ').trim();
       }
     }
   }
   
-  // 2. Si no encontró con NOMBRE, buscar líneas que parezcan nombres (3 o más palabras en mayúsculas)
+  // 2. Si no encontró con "NOMBRE", buscar cualquier línea con mayúsculas y 3+ palabras
   for (let line of lines) {
-    if (line.match(/^[A-ZÁÉÍÓÚÑ\s]{10,}$/) && line.split(/\s+/).length >= 3) {
+    if (line.match(/^[A-ZÁÉÍÓÚÑ\s]{10,}$/)) {
+      const palabras = line.split(/\s+/);
+      if (palabras.length >= 3) {
+        return line;
+      }
+    }
+  }
+  
+  // 3. Si aún no, buscar líneas con mayúsculas y largo > 10
+  for (let line of lines) {
+    if (line.match(/^[A-ZÁÉÍÓÚÑ\s]{10,}$/)) {
       return line;
     }
   }
   
-  // 3. Caso especial: buscar "MARTINEZ HERNANDEZ JONATHAN EDUARDO" en el texto
-  const regexNombreCompleto = /(?:MARTINEZ|HERNANDEZ|JONATHAN|EDUARDO)/i;
-  let match = texto.match(/([A-ZÁÉÍÓÚÑ\s]{10,}?)(?=\n|$)/);
-  if (match && match[1].split(/\s+/).length >= 3) {
-    return match[1].trim();
-  }
-  
   return null;
 }
 
 /**
- * Extrae la fecha de nacimiento (MÚLTIPLES ESTRATEGIAS)
+ * EXTRAE FECHA DE NACIMIENTO: busca patrones como DD/MM/AAAA, DD-MM-AAAA, DD/MM/AA
+ * También busca palabras "FECHA" o "NACIMIENTO" y captura la fecha cercana.
  */
 function extraerFechaNacimiento(texto) {
   if (!texto) return null;
-  
-  // 1. Buscar "FECHA DE NACIMIENTO" o "FECHADENACIMIENTO"
-  const regexFecha = /(?:FECHA\s*DE\s*NACIMIENTO|FECHADENACIMIENTO|FECHA\s*NACIMIENTO)\s*[:.]?\s*(\d{2}\s*[/-]\s*\d{2}\s*[/-]\s*\d{4})/i;
-  let match = texto.match(regexFecha);
-  if (match) {
-    const fecha = match[1].replace(/\s/g, '');
-    const partes = fecha.split(/[/-]/);
-    if (partes.length === 3) {
-      return `${partes[2]}-${partes[1]}-${partes[0]}`;
+  // Buscar patrones de fecha en todo el texto (priorizar el que tenga año completo)
+  const regexes = [
+    /(\d{2})\s*[/-]\s*(\d{2})\s*[/-]\s*(\d{4})/, // DD/MM/AAAA
+    /(\d{2})\s*[/-]\s*(\d{2})\s*[/-]\s*(\d{2})/  // DD/MM/AA
+  ];
+  for (const regex of regexes) {
+    const match = texto.match(regex);
+    if (match) {
+      let dia = match[1].padStart(2, '0');
+      let mes = match[2].padStart(2, '0');
+      let anio = match[3];
+      if (anio.length === 2) anio = '20' + anio;
+      // Validar que sea una fecha real
+      if (parseInt(mes) >= 1 && parseInt(mes) <= 12 && parseInt(dia) >= 1 && parseInt(dia) <= 31) {
+        return `${anio}-${mes}-${dia}`;
+      }
     }
-    return fecha;
   }
   
-  // 2. Buscar patrón de fecha simple (DD/MM/AAAA o DD-MM-AAAA)
-  const regexFechaSimple = /(\d{2}\s*[/-]\s*\d{2}\s*[/-]\s*\d{4})/;
-  match = texto.match(regexFechaSimple);
-  if (match) {
-    const fecha = match[1].replace(/\s/g, '');
-    const partes = fecha.split(/[/-]/);
-    if (partes.length === 3) {
-      return `${partes[2]}-${partes[1]}-${partes[0]}`;
+  // Si no encuentra, buscar "FECHA" o "NACIMIENTO" y tomar el siguiente número con formato fecha
+  const palabras = texto.split(/\s+/);
+  for (let i = 0; i < palabras.length; i++) {
+    const p = palabras[i].toUpperCase();
+    if (p.includes('FECHA') || p.includes('NACIMIENTO')) {
+      // Buscar en las siguientes 5 palabras un patrón de fecha
+      for (let j = i + 1; j < Math.min(i + 6, palabras.length); j++) {
+        const fechaCandidata = palabras[j].replace(/[^\d/-\s]/g, '');
+        if (fechaCandidata.match(/\d{2}[\/-]\d{2}[\/-]\d{2,4}/)) {
+          const partes = fechaCandidata.split(/[/-]/);
+          if (partes.length === 3) {
+            let dia = partes[0].padStart(2, '0');
+            let mes = partes[1].padStart(2, '0');
+            let anio = partes[2];
+            if (anio.length === 2) anio = '20' + anio;
+            if (parseInt(mes) >= 1 && parseInt(mes) <= 12 && parseInt(dia) >= 1 && parseInt(dia) <= 31) {
+              return `${anio}-${mes}-${dia}`;
+            }
+          }
+        }
+      }
     }
-    return fecha;
   }
   
   return null;
 }
 
 /**
- * Extrae el sexo (MÚLTIPLES ESTRATEGIAS)
+ * EXTRAE SEXO: busca "SEXO" o "SEX" y captura la letra H/M/F
+ * También busca la letra H o M aislada cerca de "SEXO"
  */
 function extraerSexo(texto) {
   if (!texto) return null;
-  const textoUpper = texto.toUpperCase();
-  
-  // 1. Buscar "SEXO" y capturar el siguiente carácter (M o F)
-  const regexSexo = /SEXO\s*[:.]?\s*([MF])/i;
-  let match = texto.match(regexSexo);
-  if (match) return match[1].toUpperCase();
-  
-  // 2. Buscar "SEXO" y luego buscar M o F en la línea
   const lines = texto.split('\n').map(l => l.trim());
+  
+  // 1. Buscar línea que contenga "SEXO" o "SEX"
   for (let line of lines) {
-    if (line.toUpperCase().includes('SEXO')) {
-      if (line.includes('M') || line.includes('H')) return 'M';
-      if (line.includes('F')) return 'F';
+    const upper = line.toUpperCase();
+    if (upper.includes('SEXO') || upper.includes('SEX')) {
+      // Buscar H o M en la misma línea
+      const matchH = line.match(/\b(H|M)\b/i);
+      if (matchH) return matchH[1].toUpperCase();
+      // Si no, buscar en las siguientes líneas
+      for (let j = lines.indexOf(line) + 1; j < Math.min(lines.indexOf(line) + 4, lines.length); j++) {
+        const sig = lines[j].toUpperCase();
+        if (sig.includes('H') || sig.includes('M')) {
+          const m = sig.match(/\b(H|M)\b/);
+          if (m) return m[1];
+        }
+      }
     }
   }
   
-  // 3. Buscar palabras clave en todo el texto
-  if (textoUpper.includes('HOMBRE') || textoUpper.includes('MASCULINO')) return 'M';
-  if (textoUpper.includes('MUJER') || textoUpper.includes('FEMENINO')) return 'F';
+  // 2. Buscar en todo el texto las palabras "HOMBRE", "MUJER", "MASCULINO", "FEMENINO"
+  const upper = texto.toUpperCase();
+  if (upper.includes('HOMBRE') || upper.includes('MASCULINO') || upper.includes('H')) return 'M';
+  if (upper.includes('MUJER') || upper.includes('FEMENINO') || upper.includes('F')) return 'F';
+  
+  // 3. Buscar la letra H o M aislada (típico en INE)
+  const matchH = texto.match(/\b(H|M)\b/);
+  if (matchH) return matchH[1].toUpperCase();
   
   return null;
 }
 
 /**
- * Valida los datos extraídos con OCR contra los datos ingresados (MÁS FLEXIBLE)
+ * VALIDA DATOS CON OCR (FLEXIBLE)
+ * Puntaje: CURP (50%), Nombre (30%), Fecha (15%), Sexo (5%)
  */
 function validarDatosConOCR(textoOCR, datosUsuario) {
   const curpEncontrado = extraerCURP(textoOCR);
@@ -204,29 +231,28 @@ function validarDatosConOCR(textoOCR, datosUsuario) {
   // Coincidencias
   const curpCoincide = curpEncontrado && curpEncontrado === datosUsuario.curp;
   
-  // Nombre: si el nombre OCR está contenido en el nombre del usuario (flexible)
-  const nombreCoincide = nombreEncontrado && datosUsuario.nombre_completo.toUpperCase().replace(/\s/g, '').includes(nombreEncontrado.toUpperCase().replace(/\s/g, ''));
+  // Nombre: comparar después de eliminar espacios y mayúsculas
+  const nombreUsuarioClean = datosUsuario.nombre_completo.toUpperCase().replace(/\s/g, '');
+  const nombreOCRclean = nombreEncontrado ? nombreEncontrado.toUpperCase().replace(/\s/g, '') : '';
+  const nombreCoincide = nombreOCRclean && (nombreUsuarioClean.includes(nombreOCRclean) || nombreOCRclean.includes(nombreUsuarioClean));
   
   // Fecha: comparar sin espacios
   const fechaCoincide = fechaEncontrada && datosUsuario.fecha_nacimiento.replace(/\s/g, '').includes(fechaEncontrada.replace(/\s/g, ''));
   
-  // Sexo: comparar (si el OCR encontró sexo)
-  const sexoCoincide = sexoEncontrado && sexoEncontrado === datosUsuario.sexo;
+  // Sexo: comparar (M/H)
+  const sexoCoincide = sexoEncontrado && datosUsuario.sexo && (sexoEncontrado === datosUsuario.sexo.toUpperCase() || 
+    (sexoEncontrado === 'H' && datosUsuario.sexo.toUpperCase() === 'M') || 
+    (sexoEncontrado === 'M' && datosUsuario.sexo.toUpperCase() === 'M') ||
+    (sexoEncontrado === 'F' && datosUsuario.sexo.toUpperCase() === 'F'));
   
-  // Puntaje ponderado: CURP (50%), nombre (30%), fecha (15%), sexo (5%)
+  // Puntaje
   let puntaje = 0;
   if (curpCoincide) puntaje += 50;
   if (nombreCoincide) puntaje += 30;
   if (fechaCoincide) puntaje += 15;
   if (sexoCoincide) puntaje += 5;
   
-  // BONUS: Si hay al menos 2 coincidencias, aumentar puntaje
-  const coincidencias = [curpCoincide, nombreCoincide, fechaCoincide, sexoCoincide].filter(Boolean).length;
-  if (coincidencias >= 2) {
-    puntaje = Math.min(puntaje + 10, 100);
-  }
-  
-  console.log(`📊 Puntaje total: ${puntaje}% (Coincidencias: ${coincidencias})`);
+  console.log(`📊 Puntaje total: ${puntaje}%`);
   
   return {
     curpCoincide,
