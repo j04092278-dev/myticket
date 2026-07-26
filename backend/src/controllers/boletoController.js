@@ -8,11 +8,13 @@ const { encrypt } = require('../utils/encrypt');
 const generarBoletoPersonalizado = async (data) => {
   const { codigo, evento, nombre_usuario, fecha, ubicacion, zona, asiento, precio, imagen_url } = data;
   
-  const qrBase64 = await QRCode.toDataURL(JSON.stringify({ 
-    codigo, 
-    evento, 
+  const qrBase64 = await QRCode.toDataURL(JSON.stringify({
+    codigo: codigo,
+    evento: evento,
     usuario: nombre_usuario,
-    fecha: fecha
+    fecha: fecha,
+    zona: zona,
+    asiento: asiento
   }));
   
   const colors = {
@@ -93,10 +95,10 @@ const comprarBoletos = async (req, res) => {
       : eventoData.precio_normal;
 
     const codigoUnico = crypto.randomBytes(8).toString('hex').toUpperCase();
-    const qrCode = await QRCode.toDataURL(JSON.stringify({ 
-      codigo: codigoUnico, 
-      evento: eventoData.nombre_evento, 
-      usuario: req.userEmail 
+    const qrCode = await QRCode.toDataURL(JSON.stringify({
+      codigo: codigoUnico,
+      evento: eventoData.nombre_evento,
+      usuario: req.userEmail
     }));
 
     const boleto = await client.query(
@@ -107,9 +109,7 @@ const comprarBoletos = async (req, res) => {
 
     await client.query('UPDATE evento SET boletos_disponibles = boletos_disponibles - $1 WHERE id_evento = $2', [cantidad, eventoId]);
 
-    // ===== CORRECCIÓN: Referencia más corta (8 caracteres) =====
-    const referencia = `REF${codigoUnico.slice(0,6)}`; // Ej: REFABC123 (10 caracteres)
-    
+    const referencia = `REF${codigoUnico.slice(0,6)}`;
     await client.query(
       `INSERT INTO venta (id_cliente, id_evento, id_boleto, fecha_venta, hora_venta, precio_pagado, referencia_boleto)
        VALUES ($1,$2,$3,CURRENT_DATE,CURRENT_TIME,$4,$5)`,
@@ -122,13 +122,11 @@ const comprarBoletos = async (req, res) => {
       [req.userId, boleto.rows[0].id_boleto, precioUnitario * cantidad]
     );
 
-    // Guardar datos de tarjeta (encriptados) - SEGURO
     if (num_tarjeta && cv && factor_tarjeta) {
       try {
         const encryptedCard = encrypt(num_tarjeta);
         const encryptedCV = encrypt(cv);
         const encryptedFactor = encrypt(factor_tarjeta);
-        
         if (encryptedCard && encryptedCV && encryptedFactor) {
           await client.query(
             `UPDATE cliente SET num_tarjeta = $1, cv = $2, factor_tarjeta = $3, fecha_inf = CURRENT_DATE, valida_inf = true
@@ -138,7 +136,6 @@ const comprarBoletos = async (req, res) => {
         }
       } catch (err) {
         console.warn('⚠️ No se pudieron encriptar los datos de la tarjeta:', err.message);
-        // No detenemos la transacción, solo logueamos
       }
     }
 
@@ -151,7 +148,7 @@ const comprarBoletos = async (req, res) => {
     const boletoPersonalizado = await generarBoletoPersonalizado({
       codigo: codigoUnico,
       evento: eventoData.nombre_evento,
-      nombre_usuario,
+      nombre_usuario: nombre_usuario,
       fecha: eventoData.fecha_evento,
       ubicacion: eventoData.ubicacion,
       zona: zona || 'General',

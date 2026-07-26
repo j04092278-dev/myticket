@@ -3,7 +3,6 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// ===== CONFIGURACIÓN DE MULTER =====
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const dir = './uploads/eventos/';
@@ -26,7 +25,6 @@ const upload = multer({
   }
 });
 
-// ========== GET EVENTOS ==========
 const getEventos = async (req, res) => {
   try {
     const result = await pool.query(`
@@ -46,7 +44,6 @@ const getEventos = async (req, res) => {
   }
 };
 
-// ========== GET IMAGEN ==========
 const getEventoImagen = async (req, res) => {
   const { id } = req.params;
   try {
@@ -66,7 +63,6 @@ const getEventoImagen = async (req, res) => {
   }
 };
 
-// ========== CREATE EVENTO ==========
 const createEvento = async (req, res) => {
   const {
     nombre_evento, fecha_evento, hora_evento, ubicacion,
@@ -77,14 +73,10 @@ const createEvento = async (req, res) => {
   let imagenData = null;
   let imagenUrl = null;
 
-  // Leer imagen del archivo temporal si existe
   if (req.file) {
     try {
-      console.log('📸 Leyendo imagen del evento:', req.file.path);
       imagenData = fs.readFileSync(req.file.path);
-      // Eliminar archivo temporal después de leer
       fs.unlinkSync(req.file.path);
-      console.log('✅ Imagen leída correctamente, tamaño:', imagenData.length, 'bytes');
     } catch (err) {
       console.error('❌ Error al leer imagen:', err);
     }
@@ -109,12 +101,9 @@ const createEvento = async (req, res) => {
     );
 
     const eventId = result.rows[0].id_evento;
-
-    // Actualizar la URL con el ID real si hay imagen
     if (imagenData) {
       const realUrl = `/api/eventos/${eventId}/imagen`;
       await pool.query('UPDATE evento SET imagen_url = $1 WHERE id_evento = $2', [realUrl, eventId]);
-      console.log('✅ URL de imagen actualizada:', realUrl);
     }
 
     const newEvento = await pool.query('SELECT * FROM evento WHERE id_evento = $1', [eventId]);
@@ -125,7 +114,6 @@ const createEvento = async (req, res) => {
   }
 };
 
-// ========== DELETE EVENTO ==========
 const deleteEvento = async (req, res) => {
   const { id } = req.params;
   try {
@@ -137,7 +125,6 @@ const deleteEvento = async (req, res) => {
   }
 };
 
-// ========== GET ESTADÍSTICAS ==========
 const getEventoStats = async (req, res) => {
   const { id } = req.params;
   try {

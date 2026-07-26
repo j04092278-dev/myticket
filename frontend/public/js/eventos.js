@@ -139,7 +139,7 @@ function iniciarCuentasRegresivas() {
   });
 }
 
-// ========== MODAL COMPRA ==========
+// ========== MODAL COMPRA CON MENÚ DE ZONAS VISIBLE ==========
 function mostrarModalCompra(eventoId, esPreventa, eventoNombre, precioUnitario) {
   const modal = document.createElement('div');
   modal.id = 'compraModal';
@@ -170,11 +170,11 @@ function mostrarModalCompra(eventoId, esPreventa, eventoNombre, precioUnitario) 
       </div>
       <div style="margin-bottom: 1.5rem;">
         <label style="color: #ccc; display: block; margin-bottom: 0.3rem;">Zona</label>
-        <select id="zonaSelect" style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem; box-sizing:border-box;">
-          <option value="General">General</option>
-          <option value="VIP">VIP</option>
-          <option value="Platea">Platea</option>
-          <option value="Palco">Palco</option>
+        <select id="zonaSelect" style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.15); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem; box-sizing:border-box; appearance:auto; -webkit-appearance:auto; cursor:pointer;">
+          <option value="General" style="background:#1a1a1a; color:white;">General</option>
+          <option value="VIP" style="background:#1a1a1a; color:white;">VIP</option>
+          <option value="Platea" style="background:#1a1a1a; color:white;">Platea</option>
+          <option value="Palco" style="background:#1a1a1a; color:white;">Palco</option>
         </select>
       </div>
       <div style="display: flex; gap: 1rem;">
@@ -201,6 +201,7 @@ function mostrarModalCompra(eventoId, esPreventa, eventoNombre, precioUnitario) 
   };
 }
 
+// ========== PROCEDER CON COMPRA ==========
 async function procederConCompra(eventoId, esPreventa, eventoNombre, precioUnitario, cantidad, zona, asiento) {
   if (!currentUser) {
     showToast('Inicia sesión para comprar', 'warning');
@@ -273,10 +274,10 @@ function mostrarModalValidacionINE(callback) {
         </div>
         <div style="margin-bottom: 1rem;">
           <label style="color: #ccc; display: block; margin-bottom: 0.3rem;">Sexo</label>
-          <select id="sexoINE" required style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem; box-sizing:border-box; appearance:none; -webkit-appearance:none; background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><path fill="white" d="M6 8L1 3h10z"/></svg>'); background-repeat:no-repeat; background-position:right 1rem center; background-size:12px;">
-            <option value="" disabled selected style="color:#aaa; background:#0d0d0d;">Selecciona tu sexo</option>
-            <option value="M" style="color:white; background:#1a1a1a;">Masculino</option>
-            <option value="F" style="color:white; background:#1a1a1a;">Femenino</option>
+          <select id="sexoINE" required style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem; box-sizing:border-box; appearance:auto; -webkit-appearance:auto; cursor:pointer;">
+            <option value="" disabled selected style="background:#1a1a1a; color:#aaa;">Selecciona tu sexo</option>
+            <option value="M" style="background:#1a1a1a; color:white;">Masculino</option>
+            <option value="F" style="background:#1a1a1a; color:white;">Femenino</option>
           </select>
         </div>
         <div style="margin-bottom: 1rem;">
@@ -460,10 +461,10 @@ function mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asie
         </div>
         <div style="margin-bottom: 1.5rem;">
           <label style="color: #ccc; display: block; margin-bottom: 0.3rem;">Tipo de tarjeta</label>
-          <select id="tipoTarjeta" style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem; box-sizing:border-box;">
-            <option value="VISA">VISA</option>
-            <option value="Mastercard">Mastercard</option>
-            <option value="AMEX">American Express</option>
+          <select id="tipoTarjeta" style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem; box-sizing:border-box; appearance:auto; -webkit-appearance:auto; cursor:pointer;">
+            <option value="VISA" style="background:#1a1a1a; color:white;">VISA</option>
+            <option value="Mastercard" style="background:#1a1a1a; color:white;">Mastercard</option>
+            <option value="AMEX" style="background:#1a1a1a; color:white;">American Express</option>
           </select>
         </div>
         <div class="pago-seguro" style="display:flex; align-items:center; justify-content:center; gap:0.5rem; color:var(--text-muted); font-size:0.85rem; margin-bottom:1rem;">
@@ -480,7 +481,7 @@ function mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asie
   document.body.appendChild(modal);
   document.getElementById('cerrarPago').onclick = () => modal.remove();
 
-  // ===== EVENTO SUBMIT DEL FORMULARIO DE PAGO (CORREGIDO) =====
+  // ===== EVENTO SUBMIT DEL FORMULARIO DE PAGO =====
   document.getElementById('pagoForm').onsubmit = async (e) => {
     e.preventDefault();
     console.log('🔄 Procesando pago...');
@@ -496,7 +497,7 @@ function mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asie
       return;
     }
 
-    // Mostrar loader
+    // Mostrar loader en el botón
     const submitBtn = e.target.querySelector('button[type="submit"]');
     const originalText = submitBtn.textContent;
     submitBtn.textContent = '⏳ Procesando...';
@@ -509,12 +510,13 @@ function mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asie
         factor_tarjeta
       }, tipoPrecio);
 
+      console.log('📦 Respuesta del servidor:', res);
+
       if (res.success) {
         modal.remove();
         // Mostrar boleto con el HTML personalizado
         mostrarBoletoModal(res.boleto.personalizado, res.boleto.url);
         showToast(`✅ Compra exitosa! Código: ${res.boleto.codigo}`, 'success');
-        // Redirigir después de 3 segundos
         setTimeout(() => {
           window.location.href = '/mis-boletos.html';
         }, 3000);
@@ -610,7 +612,7 @@ async function cargarEventos() {
       const precioPreventa = e.precio_preventa || e.precio_normal;
       const badge = e.es_preventa ? '<span class="badge-preventa">PREVENTA</span>' : '';
       
-      // ===== IMAGEN DEL EVENTO - CORREGIDO =====
+      // ===== IMAGEN DEL EVENTO =====
       let imagenHtml = '';
       if (e.imagen_url && e.tiene_imagen) {
         imagenHtml = `<img src="${e.imagen_url}" style="width:100%; height:180px; object-fit:cover; border-radius:8px 8px 0 0;" alt="${e.nombre_evento}">`;

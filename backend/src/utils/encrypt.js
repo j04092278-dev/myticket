@@ -1,19 +1,13 @@
 const crypto = require('crypto');
 
-// ===== CORRECCIÓN: Asegurar que la clave tenga 32 caracteres =====
-// Si la clave del .env es más corta, se rellena; si es más larga, se trunca
 function getValidKey(rawKey) {
   if (!rawKey) {
-    // Si no hay clave, generar una por defecto (SOLO PARA PRUEBAS)
     console.warn('⚠️ ENCRYPTION_KEY no definida. Usando clave por defecto (inseguro en producción).');
     return 'mi-clave-secreta-32-caracteres-largos!!';
   }
-  // Asegurar 32 caracteres exactos
   if (rawKey.length < 32) {
-    // Rellenar con ceros si es más corta
     return rawKey.padEnd(32, '0');
   } else if (rawKey.length > 32) {
-    // Truncar si es más larga
     return rawKey.substring(0, 32);
   }
   return rawKey;

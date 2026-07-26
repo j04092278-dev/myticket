@@ -32,27 +32,14 @@ class Auth {
 
   static async getCurrentUser() {
     try {
-      console.log('🔍 getCurrentUser: llamando a /api/auth/me');
       const res = await fetch('/api/auth/me', {
-        credentials: 'include',
-        headers: {
-          'Accept': 'application/json'
-        }
+        credentials: 'include'
       });
-      console.log('📡 Respuesta /me:', res.status);
-      if (res.status === 401) {
-        console.log('⚠️ No autenticado (401)');
-        return null;
-      }
-      if (!res.ok) {
-        console.log('⚠️ Error en /me:', res.status);
-        return null;
-      }
-      const data = await res.json();
-      console.log('✅ Usuario obtenido:', data.user?.email);
-      return data;
+      if (res.status === 401) return null;
+      if (!res.ok) return null;
+      return await res.json();
     } catch (err) {
-      console.error('❌ Error en getCurrentUser:', err);
+      console.error('Error en getCurrentUser:', err);
       return null;
     }
   }
