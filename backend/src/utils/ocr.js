@@ -11,7 +11,7 @@ async function preprocesarImagen(imagenPath) {
     await sharp(imagenPath)
       .resize(1200, 800, { fit: 'inside' })
       .grayscale()
-      .normalize() // Aumenta contraste
+      .normalize()
       .sharpen()
       .toFile(outputPath);
     return outputPath;
@@ -29,7 +29,6 @@ async function extraerTextoDeImagen(imagenPath, idioma = 'spa') {
     console.log('📖 Extrayendo texto de la imagen del INE...');
     console.log('📸 Ruta de la imagen:', imagenPath);
 
-    // Preprocesar para mejorar OCR
     const imagenProcesada = await preprocesarImagen(imagenPath);
     console.log('🔧 Imagen preprocesada:', imagenProcesada);
 
@@ -47,7 +46,6 @@ async function extraerTextoDeImagen(imagenPath, idioma = 'spa') {
     console.log(texto);
     console.log('--- FIN DEL TEXTO ---');
     
-    // Limpiar archivo procesado si es diferente al original
     if (imagenProcesada !== imagenPath && require('fs').existsSync(imagenProcesada)) {
       require('fs').unlinkSync(imagenProcesada);
     }
@@ -60,49 +58,52 @@ async function extraerTextoDeImagen(imagenPath, idioma = 'spa') {
 }
 
 /**
- * Extrae el CURP del texto del INE (busca varios patrones)
+ * Extrae el CURP del texto del INE (busca en todo el texto)
  */
 function extraerCURP(texto) {
   if (!texto) return null;
-  // Busca patrones de CURP: 4 letras + 6 dígitos + 6 alfanuméricos + 1 dígito
-  const regexes = [
-    /[A-Z]{4}[0-9]{6}[A-Z0-9]{6}[0-9X]/,
-    /[A-Z]{4}[0-9]{6}[A-Z0-9]{6}[0-9]/
-  ];
-  for (const regex of regexes) {
-    const match = texto.match(regex);
-    if (match) return match[0];
-  }
+  // Busca el patrón de CURP: 4 letras + 6 dígitos + 6 alfanuméricos + 1 dígito (0-9 o X)
+  const regex = /[A-Z]{4}[0-9]{6}[A-Z0-9]{6}[0-9X]/;
+  const match = texto.match(regex);
+  if (match) return match[0];
   return null;
 }
 
 /**
- * Extrae el nombre del texto del INE (busca "NOMBRE" o líneas de mayúsculas)
+ * Extrae el nombre del texto del INE (busca líneas con mayúsculas y 3+ palabras)
  */
 function extraerNombre(texto) {
   if (!texto) return null;
   const lines = texto.split('\n').map(l => l.trim()).filter(l => l.length > 0);
   
-  // Buscar línea que contenga "NOMBRE" o "NOMBRE(S)"
+  // Buscar líneas que contengan "NOMBRE" (pero ignorar las que tengan "SEXO")
   for (let line of lines) {
-    if (line.includes('NOMBRE')) {
-      const nombrePart = line.replace(/NOMBRE\s*[:.]?\s*/i, '');
-      if (nombrePart.length > 3) return nombrePart.trim();
+    if (line.includes('NOMBRE') && !line.includes('SEXO')) {
+      const nombrePart = line.replace(/NOMBRE\s*[:.]?\s*/i, '').trim();
+      if (nombrePart.length > 3) return nombrePart;
     }
   }
   
-  // Buscar líneas con mayúsculas que parezcan nombre (3+ palabras)
+  // Buscar líneas con solo mayúsculas y que tengan 3 o más palabras (nombre completo)
   for (let line of lines) {
-    if (line.match(/^[A-ZÁÉÍÓÚÑ\s]{10,}$/)) {
-      return line;
+    // Eliminar caracteres extraños y espacios múltiples
+    const cleanLine = line.replace(/[^A-ZÁÉÍÓÚÑ\s]/g, '').trim();
+    if (cleanLine && cleanLine.match(/^[A-ZÁÉÍÓÚÑ\s]+$/)) {
+      const palabras = cleanLine.split(/\s+/).filter(p => p.length > 1);
+      if (palabras.length >= 3 && cleanLine.length > 10) {
+        return cleanLine;
+      }
     }
   }
   
-  // Si no, buscar cualquier línea con más de 3 palabras y mayúsculas
+  // Si no, buscar cualquier línea con más de 3 palabras y mayúsculas (menos estricto)
   for (let line of lines) {
-    const palabras = line.split(/\s+/);
-    if (palabras.length >= 3 && line.match(/^[A-ZÁÉÍÓÚÑ\s]+$/)) {
-      return line;
+    const cleanLine = line.replace(/[^A-ZÁÉÍÓÚÑ\s]/g, '').trim();
+    if (cleanLine && cleanLine.match(/^[A-ZÁÉÍÓÚÑ\s]+$/)) {
+      const palabras = cleanLine.split(/\s+/).filter(p => p.length > 1);
+      if (palabras.length >= 2 && cleanLine.length > 8) {
+        return cleanLine;
+      }
     }
   }
   
@@ -124,7 +125,6 @@ function extraerFechaNacimiento(texto) {
     if (match) {
       let partes = match[1].replace(/\s/g, '').split(/[/-]/);
       if (partes.length === 3) {
-        // Si el año tiene 2 dígitos, asumir 20xx
         if (partes[2].length === 2) {
           partes[2] = '20' + partes[2];
         }
@@ -161,7 +161,6 @@ function extraerSexo(texto) {
 
 /**
  * Valida los datos extraídos con OCR contra los datos ingresados por el usuario
- * Usa coincidencia flexible (tolera diferencias en mayúsculas/minúsculas, espacios)
  */
 function validarDatosConOCR(textoOCR, datosUsuario) {
   const curpEncontrado = extraerCURP(textoOCR);
@@ -178,8 +177,8 @@ function validarDatosConOCR(textoOCR, datosUsuario) {
   // Comparación flexible
   const curpCoincide = curpEncontrado && curpEncontrado === datosUsuario.curp;
   
-  // Nombre: coincide si el nombre OCR está contenido en el nombre del usuario (ignorando mayúsculas)
-  const nombreCoincide = nombreEncontrado && datosUsuario.nombre_completo.toUpperCase().includes(nombreEncontrado.toUpperCase());
+  // Nombre: coincide si el nombre OCR está contenido en el nombre del usuario (ignorando mayúsculas y espacios)
+  const nombreCoincide = nombreEncontrado && datosUsuario.nombre_completo.toUpperCase().replace(/\s/g, '').includes(nombreEncontrado.toUpperCase().replace(/\s/g, ''));
   
   // Fecha: comparar sin espacios
   const fechaCoincide = fechaEncontrada && datosUsuario.fecha_nacimiento.replace(/\s/g, '').includes(fechaEncontrada.replace(/\s/g, ''));
@@ -187,7 +186,7 @@ function validarDatosConOCR(textoOCR, datosUsuario) {
   // Sexo: si el OCR encontró sexo, comparar; si no, no se penaliza
   const sexoCoincide = sexoEncontrado && (!datosUsuario.sexo || sexoEncontrado === datosUsuario.sexo);
 
-  // Puntaje ponderado (sexo solo si se encontró)
+  // Puntaje ponderado
   let puntaje = 0;
   if (curpCoincide) puntaje += 40;
   if (nombreCoincide) puntaje += 30;
@@ -195,7 +194,7 @@ function validarDatosConOCR(textoOCR, datosUsuario) {
   if (sexoCoincide) puntaje += 10;
   // Si no se encontró sexo, repartir su peso entre los otros campos
   if (!sexoEncontrado && (curpCoincide || nombreCoincide || fechaCoincide)) {
-    puntaje = Math.min(puntaje + 10, 100); // dar un pequeño bonus
+    puntaje = Math.min(puntaje + 10, 100);
   }
 
   console.log(`📊 Puntaje total: ${puntaje}%`);
