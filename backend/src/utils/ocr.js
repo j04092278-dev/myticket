@@ -34,7 +34,6 @@ async function extraerTextoDeImagen(imagenPath, idioma = 'spa') {
  */
 function extraerCURP(texto) {
   if (!texto) return null;
-  // Busca patrones de CURP: 4 letras + 6 dígitos + 6 alfanuméricos + 1 dígito
   const regex = /[A-Z]{4}[0-9]{6}[A-Z0-9]{6}[0-9X]/;
   const match = texto.match(regex);
   return match ? match[0] : null;
@@ -47,7 +46,6 @@ function extraerNombre(texto) {
   if (!texto) return null;
   const lines = texto.split('\n').map(l => l.trim()).filter(l => l.length > 0);
   
-  // Buscar línea que contenga "NOMBRE" o "NOMBRE(S)"
   for (let line of lines) {
     if (line.includes('NOMBRE')) {
       const nombrePart = line.replace(/NOMBRE\s*[:.]?\s*/i, '');
@@ -55,7 +53,6 @@ function extraerNombre(texto) {
     }
   }
   
-  // Si no, buscar líneas con mayúsculas que parezcan nombre (3+ palabras)
   for (let line of lines) {
     if (line.match(/^[A-ZÁÉÍÓÚÑ\s]{10,}$/)) {
       return line;
@@ -70,11 +67,9 @@ function extraerNombre(texto) {
  */
 function extraerFechaNacimiento(texto) {
   if (!texto) return null;
-  // Busca patrones de fecha: DD/MM/AAAA o DD-MM-AAAA
   const regex = /(\d{2}\s*[/-]\s*\d{2}\s*[/-]\s*\d{4})/;
   const match = texto.match(regex);
   if (match) {
-    // Convertir a formato YYYY-MM-DD
     const partes = match[1].replace(/\s/g, '').split(/[/-]/);
     if (partes.length === 3) {
       return `${partes[2]}-${partes[1]}-${partes[0]}`;
@@ -132,7 +127,6 @@ function validarDatosConOCR(textoOCR, datosUsuario) {
     fechaEncontrada,
     sexoEncontrado,
     textoExtraido: textoOCR,
-    // Porcentaje de coincidencia (para decidir si es válido)
     puntaje: (curpCoincide ? 40 : 0) + (nombreCoincide ? 30 : 0) + (fechaCoincide ? 20 : 0) + (sexoCoincide ? 10 : 0)
   };
 }
