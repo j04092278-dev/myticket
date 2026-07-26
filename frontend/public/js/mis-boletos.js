@@ -2,32 +2,44 @@ let currentUser = null;
 
 async function loadUser() {
   try {
+    console.log('🔄 Cargando usuario desde Mis Boletos...');
     const res = await Auth.getCurrentUser();
+    console.log('📥 Respuesta de getCurrentUser:', res);
+    
     if (res && res.user) {
       currentUser = res.user;
-      document.getElementById('userName').innerText = currentUser.nombre.split(' ')[0];
-      document.getElementById('loginBtn').style.display = 'none';
-      document.getElementById('logoutBtn').style.display = 'inline-block';
+      const userNameEl = document.getElementById('userName');
+      if (userNameEl) userNameEl.innerText = currentUser.nombre.split(' ')[0];
+      const loginBtn = document.getElementById('loginBtn');
+      const logoutBtn = document.getElementById('logoutBtn');
+      if (loginBtn) loginBtn.style.display = 'none';
+      if (logoutBtn) logoutBtn.style.display = 'inline-block';
+      console.log('✅ Usuario autenticado en Mis Boletos:', currentUser.email);
       cargarBoletos();
     } else {
+      console.log('⚠️ Usuario no autenticado en Mis Boletos, redirigiendo a login');
+      // Redirigir solo si no hay usuario
       window.location.href = '/login.html?redirect=mis-boletos';
     }
   } catch(e) {
-    console.error('❌ Error de autenticación:', e);
+    console.error('❌ Error de autenticación en Mis Boletos:', e);
     window.location.href = '/login.html?redirect=mis-boletos';
   }
 }
 
 document.getElementById('logoutBtn').onclick = async () => {
   await Auth.logout();
-  location.href = '/';
+  currentUser = null;
+  window.location.href = '/';
 };
 
 async function cargarBoletos() {
   const container = document.getElementById('boletosContainer');
   container.innerHTML = '<div class="loader"><div class="spinner"></div><p>Cargando tus boletos...</p></div>';
   try {
+    console.log('🔄 Cargando boletos...');
     const boletos = await API.getMisBoletos();
+    console.log('📦 Boletos recibidos:', boletos);
     if (!boletos || boletos.length === 0) {
       container.innerHTML = '<p style="text-align:center; color:var(--text-secondary);">🪐 No has comprado boletos aún. <a href="/eventos.html" style="color:var(--red-main);">Explorar eventos</a></p>';
       return;

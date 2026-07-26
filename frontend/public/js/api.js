@@ -3,7 +3,7 @@ class API {
     const res = await fetch(`/api${endpoint}`, {
       ...options,
       headers: { 'Content-Type': 'application/json', ...options.headers },
-      credentials: 'include' // ⬅️ ENVIAR COOKIES
+      credentials: 'include'
     });
     if (!res.ok) {
       let errorMsg = `Error ${res.status}`;

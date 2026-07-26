@@ -42,25 +42,19 @@ const login = async (req, res) => {
       { expiresIn: '7d' }
     );
 
-    // ===== CONFIGURACIÓN DE COOKIE PARA RENDER =====
+    // ===== CONFIGURACIÓN DE COOKIE SIN DOMAIN (PARA QUE FUNCIONE EN EL MISMO DOMINIO) =====
     const isProduction = process.env.NODE_ENV === 'production';
-    const host = req.get('host');
-    let domain = undefined;
-    if (isProduction && host && host.includes('onrender.com')) {
-      domain = '.onrender.com'; // ⬅️ DOMINIO BASE PARA COMPARTIR COOKIE
-    }
-
     res.cookie('token', token, {
       httpOnly: true,
       secure: isProduction,      // true en producción (HTTPS)
-      sameSite: 'lax',           // ⬅️ PERMITE NAVEGACIÓN ENTRE PÁGINAS
+      sameSite: 'lax',           // Permite navegación entre páginas
       maxAge: 7 * 24 * 60 * 60 * 1000,
       path: '/',
-      domain: domain             // ⬅️ .onrender.com en producción
+      // domain: undefined        // No usar domain para que funcione en el dominio exacto
     });
 
     console.log(`✅ Cookie token establecida para: ${user.correo_usuario}`);
-    console.log(`   Domain: ${domain || 'none'}, Secure: ${isProduction}, SameSite: lax`);
+    console.log(`   Secure: ${isProduction}, SameSite: lax, Path: /`);
 
     res.json({
       success: true,
@@ -79,17 +73,11 @@ const login = async (req, res) => {
 
 const logout = (req, res) => {
   const isProduction = process.env.NODE_ENV === 'production';
-  const host = req.get('host');
-  let domain = undefined;
-  if (isProduction && host && host.includes('onrender.com')) {
-    domain = '.onrender.com';
-  }
   res.clearCookie('token', {
     httpOnly: true,
     secure: isProduction,
     sameSite: 'lax',
-    path: '/',
-    domain: domain
+    path: '/'
   });
   res.json({ success: true });
 };
