@@ -123,7 +123,8 @@ const validarINEConImagen = async (req, res) => {
       
       console.log('📊 Resultado OCR:', datosExtraidos);
       
-      const puntajeMinimo = 50; // reducido a 50% para ser más permisivo
+      // Umbral reducido a 35% (aceptamos si al menos CURP o nombre+fecha coinciden)
+      const puntajeMinimo = 35;
       if (datosExtraidos.puntaje >= puntajeMinimo) {
         coincidenciaOCR = true;
         mensajeOCR = `✅ OCR verificó los datos del INE (${datosExtraidos.puntaje}% coincidencia)`;
@@ -137,9 +138,8 @@ const validarINEConImagen = async (req, res) => {
       console.log('❌ OCR: No se pudo extraer texto');
     }
 
-    // 5. Si la validación OCR falla, NO guardar en BD y devolver error (además eliminamos archivos temporales)
+    // 5. Si la validación OCR falla, NO guardar en BD y devolver error
     if (!coincidenciaOCR) {
-      // Eliminar archivos temporales
       if (imagenPath && fs.existsSync(imagenPath)) {
         try { fs.unlinkSync(imagenPath); } catch(e) {}
       }
@@ -147,7 +147,6 @@ const validarINEConImagen = async (req, res) => {
         try { fs.unlinkSync(selfiePath); } catch(e) {}
       }
       
-      // Devolver error con detalles del OCR
       return res.status(400).json({
         error: 'Los datos de la imagen no coinciden con los ingresados. Verifica que la foto sea clara y los datos correctos.',
         ocr: {
@@ -197,7 +196,6 @@ const validarINEConImagen = async (req, res) => {
 
   } catch (error) {
     console.error('❌ Error en validarINEConImagen:', error);
-    // En caso de error, eliminar archivos temporales
     if (req.files) {
       if (req.files['ineImage'] && req.files['ineImage'][0] && fs.existsSync(req.files['ineImage'][0].path)) {
         try { fs.unlinkSync(req.files['ineImage'][0].path); } catch(e) {}
