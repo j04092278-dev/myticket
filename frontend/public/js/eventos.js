@@ -420,11 +420,9 @@ function mostrarModalValidacionINE(callback) {
         if (stream) stream.getTracks().forEach(t => t.stop());
         callback(true);
       } else {
-        // Mostrar mensaje de error
         const errorMsg = data.error || 'Error al validar';
         showToast('❌ ' + errorMsg, 'error');
 
-        // Si hay datos del OCR, mostrarlos
         if (data.ocr && data.ocr.datosExtraidos) {
           const ocr = data.ocr.datosExtraidos;
           let detalles = '📝 Datos extraídos por OCR:\n';
@@ -434,19 +432,17 @@ function mostrarModalValidacionINE(callback) {
           detalles += `Sexo: ${ocr.sexoEncontrado || 'No detectado'}\n`;
           detalles += `Coincidencia: ${data.ocr.coincidencia ? 'Sí' : 'No'} (${data.ocr.datosExtraidos.puntaje}%)`;
           
-          // Mostrar en un toast largo
           setTimeout(() => {
             showToast('📝 ' + detalles, 'info', 12000);
           }, 500);
         }
-        // No se guarda en BD porque el backend ya rechazó
       }
     } catch(err) {
       console.error('❌ Error en validación:', err);
       showToast('Error: ' + err.message, 'error');
     }
   };
-} // <--- CIERRE CORRECTO DE mostrarModalValidacionINE
+}
 
 // ========== MODAL PAGO ==========
 function mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asiento, eventoNombre, precioUnitario) {
@@ -518,7 +514,6 @@ function mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asie
   document.body.appendChild(modal);
   document.getElementById('cerrarPago').onclick = () => modal.remove();
 
-  // ===== EVENTO SUBMIT DEL FORMULARIO DE PAGO =====
   document.getElementById('pagoForm').onsubmit = async (e) => {
     e.preventDefault();
     console.log('🔄 Procesando pago...');
@@ -534,7 +529,6 @@ function mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asie
       return;
     }
 
-    // Mostrar loader en el botón
     const submitBtn = e.target.querySelector('button[type="submit"]');
     const originalText = submitBtn.textContent;
     submitBtn.textContent = '⏳ Procesando...';
@@ -648,7 +642,6 @@ async function cargarEventos() {
       const precioPreventa = e.precio_preventa || e.precio_normal;
       const badge = e.es_preventa ? '<span class="badge-preventa">PREVENTA</span>' : '';
       
-      // ===== IMAGEN DEL EVENTO =====
       let imagenHtml = '';
       if (e.imagen_url && e.tiene_imagen) {
         imagenHtml = `<img src="${e.imagen_url}" style="width:100%; height:180px; object-fit:cover; border-radius:8px 8px 0 0;" alt="${e.nombre_evento}">`;
