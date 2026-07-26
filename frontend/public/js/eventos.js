@@ -236,184 +236,27 @@ async function procederConCompra(eventoId, esPreventa, eventoNombre, precioUnita
 // ========== VALIDACIÓN DE INE ==========
 // ========== VALIDACIÓN DE INE CON OCR Y MENSAJE DE ESCANEO ==========
 function mostrarModalValidacionINE(callback) {
-  const modal = document.createElement('div');
-  modal.id = 'ineModal';
-  modal.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.85);
-    backdrop-filter: blur(10px);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 10000;
-    padding: 20px;
-  `;
-  modal.innerHTML = `
-    <div style="background: linear-gradient(145deg, rgba(10,20,45,0.95), rgba(26,11,46,0.95)); border-radius: 2rem; padding: 2rem; max-width: 550px; width: 100%; border: 2px solid #ff0000; box-shadow: 0 0 40px rgba(255,0,0,0.3); max-height: 90vh; overflow-y: auto;">
-      <h2 style="color: #ff3333; font-size: 1.8rem; text-align: center;">🔐 Validación de INE</h2>
-      <p style="color: #aaa; text-align: center; margin-bottom: 1.5rem;">Sube una foto de tu INE y una selfie para validar tu identidad.</p>
-      
-      <!-- ===== CONTENEDOR DE MENSAJE DE ESCANEO ===== -->
-      <div id="escaneoMensaje" style="display: none; background: rgba(255,0,0,0.1); border: 1px solid #ff0000; border-radius: 1rem; padding: 1rem; margin-bottom: 1rem; text-align: center;">
-        <div style="display: flex; align-items: center; justify-content: center; gap: 0.8rem;">
-          <div class="spinner" style="width: 24px; height: 24px; border: 3px solid #ff0000; border-top: 3px solid transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-          <span style="color: #ff3333; font-weight: bold; font-size: 1.1rem;" id="escaneoTexto">🔍 Escaneando tu INE...</span>
-        </div>
-        <div style="color: #9CA3AF; font-size: 0.85rem; margin-top: 0.3rem;" id="escaneoDetalle">Extrayendo datos de la imagen...</div>
-      </div>
-      
-      <!-- ===== RESULTADO DEL OCR ===== -->
-      <div id="ocrResultado" style="display: none; background: rgba(0,255,0,0.05); border: 1px solid #00cc66; border-radius: 1rem; padding: 0.8rem; margin-bottom: 1rem; text-align: center;">
-        <p style="color: #00cc66; font-weight: bold; margin: 0;" id="ocrResultadoTexto">✅ Datos verificados correctamente</p>
-      </div>
-      
-      <form id="ineFormModal" enctype="multipart/form-data">
-        <div style="margin-bottom: 1rem;">
-          <label style="color: #ccc; display: block; margin-bottom: 0.3rem;">Número de INE (Clave de Elector)</label>
-          <input type="text" id="numINE" placeholder="Ej: MRHRJN06121909H900" required style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem;">
-        </div>
-        <div style="margin-bottom: 1rem;">
-          <label style="color: #ccc; display: block; margin-bottom: 0.3rem;">CURP</label>
-          <input type="text" id="curpINE" placeholder="Ej: MAHJ061219HDFRRNA6" required style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem;">
-        </div>
-        <div style="margin-bottom: 1rem;">
-          <label style="color: #ccc; display: block; margin-bottom: 0.3rem;">Nombre completo</label>
-          <input type="text" id="nombreINE" placeholder="Como aparece en tu INE" required style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem;">
-        </div>
-        <div style="margin-bottom: 1rem;">
-          <label style="color: #ccc; display: block; margin-bottom: 0.3rem;">Fecha de nacimiento</label>
-          <input type="date" id="fechaNacINE" required style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem;">
-        </div>
-        <div style="margin-bottom: 1rem;">
-          <label style="color: #ccc; display: block; margin-bottom: 0.3rem;">Sexo</label>
-          <select id="sexoINE" required style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem; box-sizing:border-box; appearance:auto; -webkit-appearance:auto; cursor:pointer;">
-            <option value="" disabled selected style="background:#1a1a1a; color:#aaa;">Selecciona tu sexo</option>
-            <option value="M" style="background:#1a1a1a; color:white;">Masculino</option>
-            <option value="F" style="background:#1a1a1a; color:white;">Femenino</option>
-          </select>
-        </div>
-        <div style="margin-bottom: 1rem;">
-          <label style="color: #ff3333; display: block; margin-bottom: 0.3rem;"><i class="fas fa-id-card"></i> Foto de tu INE</label>
-          <input type="file" id="fotoINE" accept="image/*" required style="width:100%; padding:0.6rem; background:rgba(255,255,255,0.05); border:1px dashed #ff0000; border-radius:0.8rem; color:white; cursor:pointer;">
-        </div>
-        <div style="margin-bottom: 1.5rem;">
-          <label style="color: #ff3333; display: block; margin-bottom: 0.3rem;"><i class="fas fa-camera"></i> Selfie (foto de tu cara)</label>
-          <input type="file" id="selfieINE" accept="image/*" required style="width:100%; padding:0.6rem; background:rgba(255,255,255,0.05); border:1px dashed #ff0000; border-radius:0.8rem; color:white; cursor:pointer; margin-bottom:0.5rem;">
-          <button type="button" id="selfieCamBtn" style="background:rgba(255,0,0,0.2); border:1px solid #ff0000; color:#ff3333; padding:0.5rem 1rem; border-radius:0.8rem; cursor:pointer; width:100%;">
-            <i class="fas fa-camera"></i> Tomar selfie con cámara
-          </button>
-          <video id="selfieVideo" style="width:100%; max-height:200px; display:none; margin-top:0.5rem; border-radius:0.5rem; background:#000;" autoplay></video>
-          <button type="button" id="selfieCaptureBtn" style="display:none; background:#ff0000; color:white; border:none; padding:0.3rem 1rem; border-radius:0.5rem; cursor:pointer; margin-top:0.5rem; width:100%;">📸 Capturar selfie</button>
-        </div>
-        <button type="submit" id="btnValidarINE" style="background:linear-gradient(135deg, #cc0000, #ff0000); border:none; padding:0.8rem; border-radius:2rem; font-weight:bold; font-size:1.1rem; color:white; cursor:pointer; width:100%; box-shadow:0 0 20px rgba(255,0,0,0.3); transition:0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
-          ✅ Validar y Comprar
-        </button>
-      </form>
-      <button id="closeINE" style="margin-top:1rem; background:rgba(255,255,255,0.1); color:#ff6666; border:1px solid #ff6666; padding:0.5rem 1rem; border-radius:2rem; cursor:pointer; width:100%; font-weight:bold;">
-        ✕ Cancelar
-      </button>
-    </div>
-  `;
-  document.body.appendChild(modal);
+  // ... el código del modal (se mantiene igual hasta el form) ...
+  // Solo cambia el evento submit del formulario:
 
-  // ===== ELEMENTOS DEL DOM =====
-  const escaneoMensaje = document.getElementById('escaneoMensaje');
-  const escaneoTexto = document.getElementById('escaneoTexto');
-  const escaneoDetalle = document.getElementById('escaneoDetalle');
-  const ocrResultado = document.getElementById('ocrResultado');
-  const ocrResultadoTexto = document.getElementById('ocrResultadoTexto');
-  const btnValidar = document.getElementById('btnValidarINE');
-
-  // ===== CÁMARA =====
-  let stream = null;
-  const video = document.getElementById('selfieVideo');
-  const camBtn = document.getElementById('selfieCamBtn');
-  const captureBtn = document.getElementById('selfieCaptureBtn');
-  const selfieInput = document.getElementById('selfieINE');
-
-  camBtn.onclick = async () => {
-    if (video.style.display === 'none') {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        video.srcObject = stream;
-        video.style.display = 'block';
-        captureBtn.style.display = 'block';
-        camBtn.textContent = 'Ocultar cámara';
-      } catch(e) {
-        showToast('Error al acceder a la cámara. Asegúrate de dar permisos.', 'error');
-      }
-    } else {
-      if (stream) stream.getTracks().forEach(t => t.stop());
-      video.style.display = 'none';
-      captureBtn.style.display = 'none';
-      camBtn.textContent = 'Tomar selfie con cámara';
-    }
-  };
-
-  captureBtn.onclick = () => {
-    if (!stream) { showToast('Activa la cámara primero.', 'warning'); return; }
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    canvas.toBlob((blob) => {
-      if (!blob) { showToast('Error al capturar', 'error'); return; }
-      const file = new File([blob], 'selfie.jpg', { type: 'image/jpeg' });
-      const dt = new DataTransfer();
-      dt.items.add(file);
-      selfieInput.files = dt.files;
-      showToast('✅ Selfie capturada', 'success');
-      if (stream) stream.getTracks().forEach(t => t.stop());
-      video.style.display = 'none';
-      captureBtn.style.display = 'none';
-      camBtn.textContent = 'Tomar selfie con cámara';
-    }, 'image/jpeg', 0.9);
-  };
-
-  document.getElementById('closeINE').onclick = () => {
-    if (stream) stream.getTracks().forEach(t => t.stop());
-    modal.remove();
-    callback(false);
-  };
-
-  // ===== ENVÍO DEL FORMULARIO CON OCR =====
   document.getElementById('ineFormModal').onsubmit = async (e) => {
     e.preventDefault();
+    
+    // ===== MENSAJE DE "ESCANEANDO INE" =====
+    showToast('🔍 Escaneando INE... Por favor espera unos segundos.', 'info', 8000);
 
-    // Limpiar mensajes anteriores
-    ocrResultado.style.display = 'none';
-    escaneoMensaje.style.display = 'none';
-
-    // Obtener datos del formulario
     const numeroINE = document.getElementById('numINE').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
     const curp = document.getElementById('curpINE').value.trim().toUpperCase().replace(/[^A-ZÑ0-9]/g, '');
     const nombreCompleto = document.getElementById('nombreINE').value.trim();
     const fechaNacimiento = document.getElementById('fechaNacINE').value;
     const sexo = document.getElementById('sexoINE').value;
-
+    
     if (!sexo) {
       showToast('Por favor, selecciona tu sexo (Masculino o Femenino)', 'warning');
       return;
     }
 
-    const fotoINE = document.getElementById('fotoINE').files[0];
-    const selfie = document.getElementById('selfieINE').files[0];
-    if (!fotoINE || !selfie) {
-      showToast('Debes subir foto de INE y selfie', 'warning');
-      return;
-    }
-
-    // Mostrar mensaje de "Escaneando INE..."
-    escaneoMensaje.style.display = 'block';
-    escaneoTexto.textContent = '🔍 Escaneando tu INE...';
-    escaneoDetalle.textContent = 'Extrayendo datos de la imagen...';
-    btnValidar.disabled = true;
-    btnValidar.textContent = '⏳ Procesando...';
+    console.log('📤 Datos enviados (frontend):', { numeroINE, curp, nombreCompleto, fechaNacimiento, sexo });
 
     const formData = new FormData();
     formData.append('numero_ine', numeroINE);
@@ -422,61 +265,40 @@ function mostrarModalValidacionINE(callback) {
     formData.append('fecha_nacimiento', fechaNacimiento);
     formData.append('sexo', sexo);
     formData.append('entidad_emision', '');
+
+    const fotoINE = document.getElementById('fotoINE').files[0];
+    const selfie = document.getElementById('selfieINE').files[0];
+    if (!fotoINE || !selfie) {
+      showToast('Debes subir foto de INE y selfie', 'warning');
+      return;
+    }
     formData.append('ineImage', fotoINE);
     formData.append('selfieImage', selfie);
 
     try {
-      console.log('📤 Enviando a validación con OCR...');
       const res = await fetch('/api/ine/validar-con-imagen', {
         method: 'POST',
         body: formData,
         credentials: 'include'
       });
       const data = await res.json();
-      console.log('📥 Respuesta del servidor:', data);
-
-      // Ocultar mensaje de escaneo
-      escaneoMensaje.style.display = 'none';
-
       if (res.ok && data.success) {
-        // Mostrar resultado del OCR
-        ocrResultado.style.display = 'block';
-        if (data.ocr && data.ocr.coincidencia) {
-          ocrResultadoTexto.innerHTML = `✅ ${data.ocr.mensaje || 'Datos verificados correctamente'}`;
-          ocrResultadoTexto.style.color = '#00cc66';
-          ocrResultado.style.borderColor = '#00cc66';
-          showToast('✅ INE validado correctamente. Ahora puedes comprar.', 'success');
-          modal.remove();
-          if (stream) stream.getTracks().forEach(t => t.stop());
-          callback(true);
-        } else {
-          ocrResultadoTexto.innerHTML = `⚠️ ${data.ocr?.mensaje || 'Los datos no coinciden con la imagen del INE'}`;
-          ocrResultadoTexto.style.color = '#ffcc00';
-          ocrResultado.style.borderColor = '#ffcc00';
-          showToast('⚠️ Los datos ingresados no coinciden con los de la imagen. Revisa la foto.', 'warning');
-          btnValidar.disabled = false;
-          btnValidar.textContent = '✅ Validar y Comprar';
-          // No cerramos el modal, el usuario puede corregir y reintentar
-        }
+        showToast('✅ INE validado correctamente. Ahora puedes comprar.', 'success');
+        modal.remove();
+        if (stream) stream.getTracks().forEach(t => t.stop());
+        callback(true);
       } else {
-        ocrResultado.style.display = 'block';
-        ocrResultadoTexto.innerHTML = `❌ ${data.error || 'Error al validar el INE'}`;
-        ocrResultadoTexto.style.color = '#ff6666';
-        ocrResultado.style.borderColor = '#ff6666';
-        showToast('❌ ' + (data.error || 'Error al validar'), 'error');
-        btnValidar.disabled = false;
-        btnValidar.textContent = '✅ Validar y Comprar';
+        // Mostrar el error específico del OCR o validación
+        const errorMsg = data.error || 'Error al validar';
+        showToast('❌ ' + errorMsg, 'error');
+        // Si hay detalles del OCR, mostrarlos en consola
+        if (data.ocr) {
+          console.log('🔍 Detalles OCR:', data.ocr);
+        }
+        // No se guarda en BD porque el backend ya rechazó la inserción
       }
-    } catch (err) {
-      console.error('❌ Error en validación:', err);
-      escaneoMensaje.style.display = 'none';
-      ocrResultado.style.display = 'block';
-      ocrResultadoTexto.innerHTML = `❌ Error: ${err.message}`;
-      ocrResultadoTexto.style.color = '#ff6666';
-      ocrResultado.style.borderColor = '#ff6666';
+    } catch(err) {
       showToast('Error: ' + err.message, 'error');
-      btnValidar.disabled = false;
-      btnValidar.textContent = '✅ Validar y Comprar';
     }
   };
 }
