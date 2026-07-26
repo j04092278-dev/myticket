@@ -34,7 +34,10 @@ class Auth {
     try {
       console.log('🔍 getCurrentUser: llamando a /api/auth/me');
       const res = await fetch('/api/auth/me', {
-        credentials: 'include'
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json'
+        }
       });
       console.log('📡 Respuesta /me:', res.status);
       if (res.status === 401) {

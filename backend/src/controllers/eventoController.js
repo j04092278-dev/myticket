@@ -80,7 +80,6 @@ const createEvento = async (req, res) => {
     try {
       imagenData = fs.readFileSync(req.file.path);
       fs.unlinkSync(req.file.path); // Eliminar archivo temporal
-      imagenUrl = `/api/eventos/imagen/temp`; // Se actualizará después
     } catch (err) {
       console.error('❌ Error al leer archivo:', err);
     }
