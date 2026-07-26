@@ -4,20 +4,31 @@ let countdownIntervals = [];
 // ========== CARGA DE USUARIO ==========
 async function loadUser() {
   try {
+    console.log('🔄 Cargando usuario...');
     const res = await Auth.getCurrentUser();
+    console.log('📥 Respuesta getCurrentUser:', res);
+    
     if (res && res.user) {
       currentUser = res.user;
-      document.getElementById('userName').innerText = currentUser.nombre.split(' ')[0];
-      document.getElementById('loginBtn').style.display = 'none';
-      document.getElementById('logoutBtn').style.display = 'inline-block';
+      const userNameEl = document.getElementById('userName');
+      if (userNameEl) userNameEl.innerText = currentUser.nombre.split(' ')[0];
+      const loginBtn = document.getElementById('loginBtn');
+      const logoutBtn = document.getElementById('logoutBtn');
+      if (loginBtn) loginBtn.style.display = 'none';
+      if (logoutBtn) logoutBtn.style.display = 'inline-block';
+      console.log('✅ Usuario autenticado:', currentUser.email);
     } else {
-      document.getElementById('loginBtn').style.display = 'inline-block';
-      document.getElementById('logoutBtn').style.display = 'none';
-      document.getElementById('userName').innerText = 'Invitado';
+      const loginBtn = document.getElementById('loginBtn');
+      const logoutBtn = document.getElementById('logoutBtn');
+      const userNameEl = document.getElementById('userName');
+      if (loginBtn) loginBtn.style.display = 'inline-block';
+      if (logoutBtn) logoutBtn.style.display = 'none';
+      if (userNameEl) userNameEl.innerText = 'Invitado';
       currentUser = null;
+      console.log('⚠️ Usuario no autenticado (modo invitado)');
     }
   } catch(e) {
-    console.error('Error en loadUser:', e);
+    console.error('❌ Error en loadUser:', e);
     currentUser = null;
   }
 }
@@ -233,16 +244,137 @@ async function procederConCompra(eventoId, esPreventa, eventoNombre, precioUnita
   mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asiento, eventoNombre, precioUnitario);
 }
 
-// ========== VALIDACIÓN DE INE ==========
 // ========== VALIDACIÓN DE INE CON OCR Y MENSAJE DE ESCANEO ==========
 function mostrarModalValidacionINE(callback) {
-  // ... el código del modal (se mantiene igual hasta el form) ...
-  // Solo cambia el evento submit del formulario:
+  const modal = document.createElement('div');
+  modal.id = 'ineModal';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(10px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    padding: 20px;
+  `;
+  modal.innerHTML = `
+    <div style="background: linear-gradient(145deg, rgba(10,20,45,0.95), rgba(26,11,46,0.95)); border-radius: 2rem; padding: 2rem; max-width: 550px; width: 100%; border: 2px solid #ff0000; box-shadow: 0 0 40px rgba(255,0,0,0.3); max-height: 90vh; overflow-y: auto;">
+      <h2 style="color: #ff3333; font-size: 1.8rem; text-align: center;">🔐 Validación de INE</h2>
+      <p style="color: #aaa; text-align: center; margin-bottom: 1.5rem;">Para comprar boletos, debes validar tu identidad con INE y selfie.</p>
+      <p style="color: var(--text-secondary); font-size: 0.9rem; text-align: center; margin-bottom: 1rem;">
+        📸 El sistema leerá automáticamente los datos de la foto de tu INE.
+      </p>
+      <form id="ineFormModal" enctype="multipart/form-data">
+        <div style="margin-bottom: 1rem;">
+          <label style="color: #ccc; display: block; margin-bottom: 0.3rem;">Número de INE (Clave de Elector)</label>
+          <input type="text" id="numINE" placeholder="Ej: MRHRJN06121909H900" required style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem;">
+        </div>
+        <div style="margin-bottom: 1rem;">
+          <label style="color: #ccc; display: block; margin-bottom: 0.3rem;">CURP</label>
+          <input type="text" id="curpINE" placeholder="Ej: MAHJ061219HDFRRNA6" required style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem;">
+        </div>
+        <div style="margin-bottom: 1rem;">
+          <label style="color: #ccc; display: block; margin-bottom: 0.3rem;">Nombre completo</label>
+          <input type="text" id="nombreINE" placeholder="Como aparece en tu INE" required style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem;">
+        </div>
+        <div style="margin-bottom: 1rem;">
+          <label style="color: #ccc; display: block; margin-bottom: 0.3rem;">Fecha de nacimiento</label>
+          <input type="date" id="fechaNacINE" required style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem;">
+        </div>
+        <div style="margin-bottom: 1rem;">
+          <label style="color: #ccc; display: block; margin-bottom: 0.3rem;">Sexo</label>
+          <select id="sexoINE" required style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem; box-sizing:border-box; appearance:auto; -webkit-appearance:auto; cursor:pointer;">
+            <option value="" disabled selected style="background:#1a1a1a; color:#aaa;">Selecciona tu sexo</option>
+            <option value="M" style="background:#1a1a1a; color:white;">Masculino</option>
+            <option value="F" style="background:#1a1a1a; color:white;">Femenino</option>
+          </select>
+        </div>
+        <div style="margin-bottom: 1rem;">
+          <label style="color: #ff3333; display: block; margin-bottom: 0.3rem;"><i class="fas fa-id-card"></i> Foto de tu INE</label>
+          <input type="file" id="fotoINE" accept="image/*" required style="width:100%; padding:0.6rem; background:rgba(255,255,255,0.05); border:1px dashed #ff0000; border-radius:0.8rem; color:white; cursor:pointer;">
+        </div>
+        <div style="margin-bottom: 1.5rem;">
+          <label style="color: #ff3333; display: block; margin-bottom: 0.3rem;"><i class="fas fa-camera"></i> Selfie (foto de tu cara)</label>
+          <input type="file" id="selfieINE" accept="image/*" required style="width:100%; padding:0.6rem; background:rgba(255,255,255,0.05); border:1px dashed #ff0000; border-radius:0.8rem; color:white; cursor:pointer; margin-bottom:0.5rem;">
+          <button type="button" id="selfieCamBtn" style="background:rgba(255,0,0,0.2); border:1px solid #ff0000; color:#ff3333; padding:0.5rem 1rem; border-radius:0.8rem; cursor:pointer; width:100%;">
+            <i class="fas fa-camera"></i> Tomar selfie con cámara
+          </button>
+          <video id="selfieVideo" style="width:100%; max-height:200px; display:none; margin-top:0.5rem; border-radius:0.5rem; background:#000;" autoplay></video>
+          <button type="button" id="selfieCaptureBtn" style="display:none; background:#ff0000; color:white; border:none; padding:0.3rem 1rem; border-radius:0.5rem; cursor:pointer; margin-top:0.5rem; width:100%;">📸 Capturar selfie</button>
+        </div>
+        <button type="submit" style="background:linear-gradient(135deg, #cc0000, #ff0000); border:none; padding:0.8rem; border-radius:2rem; font-weight:bold; font-size:1.1rem; color:white; cursor:pointer; width:100%; box-shadow:0 0 20px rgba(255,0,0,0.3); transition:0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+          ✅ Validar y Comprar
+        </button>
+      </form>
+      <button id="closeINE" style="margin-top:1rem; background:rgba(255,255,255,0.1); color:#ff6666; border:1px solid #ff6666; padding:0.5rem 1rem; border-radius:2rem; cursor:pointer; width:100%; font-weight:bold;">
+        ✕ Cancelar
+      </button>
+    </div>
+  `;
+  document.body.appendChild(modal);
 
+  let stream = null;
+  const video = document.getElementById('selfieVideo');
+  const camBtn = document.getElementById('selfieCamBtn');
+  const captureBtn = document.getElementById('selfieCaptureBtn');
+  const selfieInput = document.getElementById('selfieINE');
+
+  camBtn.onclick = async () => {
+    if (video.style.display === 'none') {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+        video.style.display = 'block';
+        captureBtn.style.display = 'block';
+        camBtn.textContent = 'Ocultar cámara';
+      } catch(e) {
+        showToast('Error al acceder a la cámara. Asegúrate de dar permisos.', 'error');
+      }
+    } else {
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      video.style.display = 'none';
+      captureBtn.style.display = 'none';
+      camBtn.textContent = 'Tomar selfie con cámara';
+    }
+  };
+
+  captureBtn.onclick = () => {
+    if (!stream) { showToast('Activa la cámara primero.', 'warning'); return; }
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob((blob) => {
+      if (!blob) { showToast('Error al capturar', 'error'); return; }
+      const file = new File([blob], 'selfie.jpg', { type: 'image/jpeg' });
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      selfieInput.files = dt.files;
+      showToast('✅ Selfie capturada', 'success');
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      video.style.display = 'none';
+      captureBtn.style.display = 'none';
+      camBtn.textContent = 'Tomar selfie con cámara';
+    }, 'image/jpeg', 0.9);
+  };
+
+  document.getElementById('closeINE').onclick = () => {
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    modal.remove();
+    callback(false);
+  };
+
+  // ===== FORMULARIO DE VALIDACIÓN CON OCR Y MENSAJE DE ESCANEO =====
   document.getElementById('ineFormModal').onsubmit = async (e) => {
     e.preventDefault();
     
-    // ===== MENSAJE DE "ESCANEANDO INE" =====
+    // ===== MENSAJE DE ESCANEO =====
     showToast('🔍 Escaneando INE... Por favor espera unos segundos.', 'info', 8000);
 
     const numeroINE = document.getElementById('numINE').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -282,22 +414,30 @@ function mostrarModalValidacionINE(callback) {
         credentials: 'include'
       });
       const data = await res.json();
+      
+      console.log('📥 Respuesta del servidor:', data);
+      
       if (res.ok && data.success) {
         showToast('✅ INE validado correctamente. Ahora puedes comprar.', 'success');
         modal.remove();
         if (stream) stream.getTracks().forEach(t => t.stop());
         callback(true);
       } else {
-        // Mostrar el error específico del OCR o validación
+        // Mostrar mensaje de error específico
         const errorMsg = data.error || 'Error al validar';
         showToast('❌ ' + errorMsg, 'error');
-        // Si hay detalles del OCR, mostrarlos en consola
+        
+        // Si hay detalles del OCR, mostrarlos en consola para depuración
         if (data.ocr) {
           console.log('🔍 Detalles OCR:', data.ocr);
+          if (!data.ocr.coincidencia) {
+            showToast('📝 Los datos de la imagen no coinciden con los ingresados.', 'warning', 5000);
+          }
         }
         // No se guarda en BD porque el backend ya rechazó la inserción
       }
     } catch(err) {
+      console.error('❌ Error en validación:', err);
       showToast('Error: ' + err.message, 'error');
     }
   };
@@ -406,7 +546,6 @@ function mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asie
 
       if (res.success) {
         modal.remove();
-        // Mostrar boleto con el HTML personalizado
         mostrarBoletoModal(res.boleto.personalizado, res.boleto.url);
         showToast(`✅ Compra exitosa! Código: ${res.boleto.codigo}`, 'success');
         setTimeout(() => {
