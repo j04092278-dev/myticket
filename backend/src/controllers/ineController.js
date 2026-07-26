@@ -64,7 +64,7 @@ const validarINEConImagen = async (req, res) => {
       return res.status(400).json({ error: 'Número de INE inválido. Verifica formato.' });
     }
 
-    // 2. Verificar duplicados (si ya existe, error directo)
+    // 2. Verificar duplicados
     const exists = await pool.query(
       'SELECT * FROM ine_validacion WHERE id_cliente = $1 OR numero_ine = $2',
       [req.userId, numero_ine]
@@ -123,7 +123,7 @@ const validarINEConImagen = async (req, res) => {
       
       console.log('📊 Resultado OCR:', datosExtraidos);
       
-      const puntajeMinimo = 60; // 60% de coincidencia para aprobar
+      const puntajeMinimo = 50; // reducido a 50% para ser más permisivo
       if (datosExtraidos.puntaje >= puntajeMinimo) {
         coincidenciaOCR = true;
         mensajeOCR = `✅ OCR verificó los datos del INE (${datosExtraidos.puntaje}% coincidencia)`;
@@ -140,14 +140,19 @@ const validarINEConImagen = async (req, res) => {
     // 5. Si la validación OCR falla, NO guardar en BD y devolver error (además eliminamos archivos temporales)
     if (!coincidenciaOCR) {
       // Eliminar archivos temporales
-      if (imagenPath && fs.existsSync(imagenPath)) fs.unlinkSync(imagenPath);
-      if (selfiePath && fs.existsSync(selfiePath)) fs.unlinkSync(selfiePath);
+      if (imagenPath && fs.existsSync(imagenPath)) {
+        try { fs.unlinkSync(imagenPath); } catch(e) {}
+      }
+      if (selfiePath && fs.existsSync(selfiePath)) {
+        try { fs.unlinkSync(selfiePath); } catch(e) {}
+      }
       
+      // Devolver error con detalles del OCR
       return res.status(400).json({
-        error: mensajeOCR,
+        error: 'Los datos de la imagen no coinciden con los ingresados. Verifica que la foto sea clara y los datos correctos.',
         ocr: {
-          textoExtraido: textoOCR,
-          datosExtraidos: datosExtraidos,
+          textoExtraido: textoOCR || 'No se pudo extraer texto',
+          datosExtraidos: datosExtraidos || null,
           coincidencia: false,
           mensaje: mensajeOCR
         }
@@ -155,7 +160,6 @@ const validarINEConImagen = async (req, res) => {
     }
 
     // 6. Solo si OCR es exitoso, guardar en BD
-    // Usamos los datos extraídos por OCR (más confiables)
     const curpFinal = datosExtraidos?.curpEncontrado || curp;
     const nombreFinal = datosExtraidos?.nombreEncontrado || nombre_completo;
     const fechaFinal = datosExtraidos?.fechaEncontrada || fecha_nacimiento;
@@ -196,10 +200,10 @@ const validarINEConImagen = async (req, res) => {
     // En caso de error, eliminar archivos temporales
     if (req.files) {
       if (req.files['ineImage'] && req.files['ineImage'][0] && fs.existsSync(req.files['ineImage'][0].path)) {
-        fs.unlinkSync(req.files['ineImage'][0].path);
+        try { fs.unlinkSync(req.files['ineImage'][0].path); } catch(e) {}
       }
       if (req.files['selfieImage'] && req.files['selfieImage'][0] && fs.existsSync(req.files['selfieImage'][0].path)) {
-        fs.unlinkSync(req.files['selfieImage'][0].path);
+        try { fs.unlinkSync(req.files['selfieImage'][0].path); } catch(e) {}
       }
     }
     res.status(500).json({ error: 'Error al validar INE: ' + error.message });

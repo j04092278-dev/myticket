@@ -373,8 +373,6 @@ function mostrarModalValidacionINE(callback) {
   // ===== FORMULARIO DE VALIDACIÓN CON OCR Y MENSAJE DE ESCANEO =====
   document.getElementById('ineFormModal').onsubmit = async (e) => {
     e.preventDefault();
-    
-    // ===== MENSAJE DE ESCANEO =====
     showToast('🔍 Escaneando INE... Por favor espera unos segundos.', 'info', 8000);
 
     const numeroINE = document.getElementById('numINE').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -414,36 +412,43 @@ function mostrarModalValidacionINE(callback) {
         credentials: 'include'
       });
       const data = await res.json();
-      
       console.log('📥 Respuesta del servidor:', data);
-      
+
       if (res.ok && data.success) {
         showToast('✅ INE validado correctamente. Ahora puedes comprar.', 'success');
         modal.remove();
         if (stream) stream.getTracks().forEach(t => t.stop());
         callback(true);
       } else {
-        // Mostrar mensaje de error específico
+        // Mostrar mensaje de error
         const errorMsg = data.error || 'Error al validar';
         showToast('❌ ' + errorMsg, 'error');
-        
-        // Si hay detalles del OCR, mostrarlos en consola para depuración
-        if (data.ocr) {
-          console.log('🔍 Detalles OCR:', data.ocr);
-          if (!data.ocr.coincidencia) {
-            showToast('📝 Los datos de la imagen no coinciden con los ingresados.', 'warning', 5000);
-          }
+
+        // Si hay datos del OCR, mostrarlos
+        if (data.ocr && data.ocr.datosExtraidos) {
+          const ocr = data.ocr.datosExtraidos;
+          let detalles = '📝 Datos extraídos por OCR:\n';
+          detalles += `CURP: ${ocr.curpEncontrado || 'No detectado'}\n`;
+          detalles += `Nombre: ${ocr.nombreEncontrado || 'No detectado'}\n`;
+          detalles += `Fecha: ${ocr.fechaEncontrada || 'No detectada'}\n`;
+          detalles += `Sexo: ${ocr.sexoEncontrado || 'No detectado'}\n`;
+          detalles += `Coincidencia: ${data.ocr.coincidencia ? 'Sí' : 'No'} (${data.ocr.datosExtraidos.puntaje}%)`;
+          
+          // Mostrar en un toast largo
+          setTimeout(() => {
+            showToast('📝 ' + detalles, 'info', 12000);
+          }, 500);
         }
-        // No se guarda en BD porque el backend ya rechazó la inserción
+        // No se guarda en BD porque el backend ya rechazó
       }
     } catch(err) {
       console.error('❌ Error en validación:', err);
       showToast('Error: ' + err.message, 'error');
     }
   };
-}
+} // <--- CIERRE CORRECTO DE mostrarModalValidacionINE
 
-// ========== MODAL PAGO (CORREGIDO) ==========
+// ========== MODAL PAGO ==========
 function mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asiento, eventoNombre, precioUnitario) {
   const total = precioUnitario * cantidad;
   const modal = document.createElement('div');
