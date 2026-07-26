@@ -3,17 +3,19 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-const uploadDir = './uploads/eventos/';
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-
 // ===== CONFIGURACIÓN DE MULTER =====
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
+  destination: (req, file, cb) => {
+    const dir = './uploads/eventos/';
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
     cb(null, `evento_${Date.now()}${ext}`);
   }
 });
+
 const upload = multer({
   storage,
   limits: { fileSize: 10 * 1024 * 1024 },
@@ -44,7 +46,7 @@ const getEventos = async (req, res) => {
   }
 };
 
-// ========== GET IMAGEN DEL EVENTO ==========
+// ========== GET IMAGEN ==========
 const getEventoImagen = async (req, res) => {
   const { id } = req.params;
   try {
@@ -75,13 +77,16 @@ const createEvento = async (req, res) => {
   let imagenData = null;
   let imagenUrl = null;
 
-  // Leer imagen del archivo temporal
+  // Leer imagen del archivo temporal si existe
   if (req.file) {
     try {
+      console.log('📸 Leyendo imagen del evento:', req.file.path);
       imagenData = fs.readFileSync(req.file.path);
-      fs.unlinkSync(req.file.path); // Eliminar archivo temporal
+      // Eliminar archivo temporal después de leer
+      fs.unlinkSync(req.file.path);
+      console.log('✅ Imagen leída correctamente, tamaño:', imagenData.length, 'bytes');
     } catch (err) {
-      console.error('❌ Error al leer archivo:', err);
+      console.error('❌ Error al leer imagen:', err);
     }
   }
 
@@ -93,9 +98,9 @@ const createEvento = async (req, res) => {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id_evento`,
       [
         nombre_evento, fecha_evento, hora_evento, ubicacion,
-        capacidad_total, capacidad_total,
-        precio_normal, precio_preventa || null,
-        es_preventa || false,
+        parseInt(capacidad_total), parseInt(capacidad_total),
+        parseFloat(precio_normal), precio_preventa ? parseFloat(precio_preventa) : null,
+        es_preventa === 'true' || es_preventa === true,
         imagenData,
         imagenUrl,
         preventa_inicio || null,
@@ -104,17 +109,19 @@ const createEvento = async (req, res) => {
     );
 
     const eventId = result.rows[0].id_evento;
-    // Actualizar la URL con el ID real
+
+    // Actualizar la URL con el ID real si hay imagen
     if (imagenData) {
       const realUrl = `/api/eventos/${eventId}/imagen`;
       await pool.query('UPDATE evento SET imagen_url = $1 WHERE id_evento = $2', [realUrl, eventId]);
+      console.log('✅ URL de imagen actualizada:', realUrl);
     }
 
     const newEvento = await pool.query('SELECT * FROM evento WHERE id_evento = $1', [eventId]);
     res.status(201).json({ success: true, evento: newEvento.rows[0] });
   } catch (error) {
     console.error('❌ Error en createEvento:', error);
-    res.status(500).json({ error: 'Error al crear evento' });
+    res.status(500).json({ error: 'Error al crear evento: ' + error.message });
   }
 };
 

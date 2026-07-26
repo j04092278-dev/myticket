@@ -42,25 +42,27 @@ const login = async (req, res) => {
       { expiresIn: '7d' }
     );
 
-    // ===== COOKIE CONFIGURACIÓN DEFINITIVA =====
+    // ===== COOKIE CONFIGURACIÓN MEJORADA =====
     const isProduction = process.env.NODE_ENV === 'production';
     const host = req.get('host');
     let domain = undefined;
-    // Si estamos en Render y el host termina en onrender.com, usamos el dominio base
+    
+    // Si estamos en Render, usar dominio base para compartir cookie entre subdominios
     if (isProduction && host && host.includes('onrender.com')) {
       domain = '.onrender.com';
     }
 
     res.cookie('token', token, {
       httpOnly: true,
-      secure: isProduction,   // true en producción (HTTPS)
-      sameSite: 'lax',        // Lax permite envío en navegación entre páginas del mismo sitio
+      secure: isProduction,      // true en producción (HTTPS)
+      sameSite: 'lax',           // Permite navegación entre páginas
       maxAge: 7 * 24 * 60 * 60 * 1000,
       path: '/',
-      domain: domain
+      domain: domain             // undefined o .onrender.com
     });
 
-    console.log(`✅ Cookie token establecida para: ${user.correo_usuario} (domain: ${domain || 'none'})`);
+    console.log(`✅ Cookie token establecida para: ${user.correo_usuario}`);
+    console.log(`   Domain: ${domain || 'none'}, Secure: ${isProduction}, SameSite: lax`);
 
     res.json({
       success: true,

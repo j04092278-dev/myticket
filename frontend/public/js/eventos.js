@@ -610,6 +610,7 @@ async function cargarEventos() {
       const precioPreventa = e.precio_preventa || e.precio_normal;
       const badge = e.es_preventa ? '<span class="badge-preventa">PREVENTA</span>' : '';
       
+      // ===== IMAGEN DEL EVENTO - CORREGIDO =====
       let imagenHtml = '';
       if (e.imagen_url && e.tiene_imagen) {
         imagenHtml = `<img src="${e.imagen_url}" style="width:100%; height:180px; object-fit:cover; border-radius:8px 8px 0 0;" alt="${e.nombre_evento}">`;

@@ -7,15 +7,12 @@ async function loadUser() {
     console.log('📥 Respuesta de getCurrentUser:', res);
     if (res && res.user) {
       currentUser = res.user;
-      const userNameEl = document.getElementById('userName');
-      if (userNameEl) userNameEl.innerText = currentUser.nombre.split(' ')[0];
-      const loginBtn = document.getElementById('loginBtn');
-      const logoutBtn = document.getElementById('logoutBtn');
-      if (loginBtn) loginBtn.style.display = 'none';
-      if (logoutBtn) logoutBtn.style.display = 'inline-block';
+      document.getElementById('userName').innerText = currentUser.nombre.split(' ')[0];
+      document.getElementById('loginBtn').style.display = 'none';
+      document.getElementById('logoutBtn').style.display = 'inline-block';
       cargarBoletos();
     } else {
-      console.warn('⚠️ Usuario no autenticado, redirigiendo a login');
+      console.log('⚠️ Usuario no autenticado, redirigiendo a login');
       window.location.href = '/login.html?redirect=mis-boletos';
     }
   } catch(e) {
@@ -87,6 +84,5 @@ async function cargarBoletos() {
   }
 }
 
-// Iniciar
 loadUser();
 if (typeof createStarField === 'function') createStarField();
