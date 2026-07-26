@@ -4,7 +4,7 @@ class Auth {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ nombre, edad, telefono, correo_usuario, contrasena }),
-      credentials: 'include'
+      credentials: 'include' // ⬅️ ENVIAR COOKIES
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
@@ -16,7 +16,7 @@ class Auth {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ correo_usuario, contrasena }),
-      credentials: 'include'
+      credentials: 'include' // ⬅️ ENVIAR COOKIES
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
@@ -26,14 +26,14 @@ class Auth {
   static async logout() {
     await fetch('/api/auth/logout', {
       method: 'POST',
-      credentials: 'include'
+      credentials: 'include' // ⬅️ ENVIAR COOKIES
     });
   }
 
   static async getCurrentUser() {
     try {
       const res = await fetch('/api/auth/me', {
-        credentials: 'include'
+        credentials: 'include' // ⬅️ ENVIAR COOKIES
       });
       if (res.status === 401) return null;
       if (!res.ok) return null;

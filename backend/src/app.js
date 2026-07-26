@@ -35,7 +35,7 @@ app.use(cors({
       callback(new Error('No permitido por CORS'));
     }
   },
-  credentials: true,
+  credentials: true, // ⬅️ PERMITIR COOKIES
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
 }));

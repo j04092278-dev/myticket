@@ -42,23 +42,26 @@ const login = async (req, res) => {
       { expiresIn: '7d' }
     );
 
+    // ===== CONFIGURACIÓN DE COOKIE PARA RENDER =====
     const isProduction = process.env.NODE_ENV === 'production';
     const host = req.get('host');
     let domain = undefined;
     if (isProduction && host && host.includes('onrender.com')) {
-      domain = '.onrender.com';
+      domain = '.onrender.com'; // ⬅️ DOMINIO BASE PARA COMPARTIR COOKIE
     }
 
     res.cookie('token', token, {
       httpOnly: true,
-      secure: isProduction,
-      sameSite: 'lax',
+      secure: isProduction,      // true en producción (HTTPS)
+      sameSite: 'lax',           // ⬅️ PERMITE NAVEGACIÓN ENTRE PÁGINAS
       maxAge: 7 * 24 * 60 * 60 * 1000,
       path: '/',
-      domain: domain
+      domain: domain             // ⬅️ .onrender.com en producción
     });
 
     console.log(`✅ Cookie token establecida para: ${user.correo_usuario}`);
+    console.log(`   Domain: ${domain || 'none'}, Secure: ${isProduction}, SameSite: lax`);
+
     res.json({
       success: true,
       user: {
@@ -94,6 +97,7 @@ const logout = (req, res) => {
 const getMe = async (req, res) => {
   try {
     if (!req.userId) {
+      console.log('❌ getMe: userId no presente');
       return res.status(401).json({ error: 'No autenticado' });
     }
     const result = await pool.query(
