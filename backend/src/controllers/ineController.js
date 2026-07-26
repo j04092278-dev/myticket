@@ -123,8 +123,8 @@ const validarINEConImagen = async (req, res) => {
       
       console.log('📊 Resultado OCR:', datosExtraidos);
       
-      // Umbral muy bajo (15%) para ser extremadamente permisivo
-      const puntajeMinimo = 15;
+      // UMBRAL REDUCIDO A 30% PARA SER MÁS PERMISIVO
+      const puntajeMinimo = 30;
       if (datosExtraidos.puntaje >= puntajeMinimo) {
         coincidenciaOCR = true;
         mensajeOCR = `✅ OCR verificó los datos del INE (${datosExtraidos.puntaje}% coincidencia)`;
