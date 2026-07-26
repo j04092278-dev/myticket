@@ -4,25 +4,14 @@ const sharp = require('sharp');
 const path = require('path');
 const fs = require('fs');
 const { validateCURP, validateINE } = require('../utils/validators');
-const { RekognitionClient, CompareFacesCommand } = require('@aws-sdk/client-rekognition');
-const Tesseract = require('tesseract.js');
+const { extraerTextoDeImagen, validarDatosConOCR } = require('../utils/ocr');
+const { compararCaras } = require('../utils/faceRecognition');
 
-// ===== CONFIGURACIÓN AWS REKOGNITION =====
-const rekognitionClient = process.env.AWS_ACCESS_KEY_ID ? new RekognitionClient({
-  region: process.env.AWS_REGION || 'us-east-1',
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  },
-}) : null;
-
-// ===== CARPETAS DE SUBIDA =====
 const uploadDir = './uploads/ine/';
 const selfieDir = './uploads/selfies/';
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 if (!fs.existsSync(selfieDir)) fs.mkdirSync(selfieDir, { recursive: true });
 
-// ===== CONFIGURACIÓN MULTER =====
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, file.fieldname === 'selfieImage' ? selfieDir : uploadDir);
@@ -44,95 +33,6 @@ const upload = multer({
   }
 });
 
-// ===== FUNCIÓN PARA EXTRAER TEXTO CON OCR =====
-async function extraerTextoDeImagen(imagenPath) {
-  try {
-    console.log('📖 Extrayendo texto con OCR...');
-    const result = await Tesseract.recognize(imagenPath, 'spa', {
-      logger: (m) => {
-        if (m.status === 'recognizing text') {
-          console.log(`📊 Progreso OCR: ${Math.round(m.progress * 100)}%`);
-        }
-      }
-    });
-    const texto = result.data.text;
-    console.log('📝 Texto extraído:', texto);
-    return texto;
-  } catch (error) {
-    console.error('❌ Error en OCR:', error);
-    return null;
-  }
-}
-
-// ===== FUNCIONES PARA EXTRAER DATOS DEL INE =====
-function extraerCURP(texto) {
-  const regex = /[A-Z]{4}[0-9]{6}[A-Z0-9]{8}/;
-  const match = texto.match(regex);
-  return match ? match[0] : null;
-}
-
-function extraerNombre(texto) {
-  const lines = texto.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-  // Buscar patrones comunes de nombre en INE
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    // Si la línea tiene más de 10 caracteres y solo letras con espacios
-    if (line.length > 10 && /^[A-ZÁÉÍÓÚÑ\s]+$/.test(line)) {
-      return line;
-    }
-  }
-  return null;
-}
-
-function extraerFechaNacimiento(texto) {
-  const regex = /(\d{2}\s*[/-]\s*\d{2}\s*[/-]\s*\d{4})/;
-  const match = texto.match(regex);
-  if (match) {
-    const fecha = match[1].replace(/\s/g, '');
-    const partes = fecha.split(/[/-]/);
-    return `${partes[2]}-${partes[1]}-${partes[0]}`;
-  }
-  return null;
-}
-
-function extraerClaveElector(texto) {
-  const regex = /[A-Z]{2}[0-9]{6}[A-Z0-9]{6}[A-Z][0-9]{2}/;
-  const match = texto.match(regex);
-  return match ? match[0] : null;
-}
-
-function extraerSexo(texto) {
-  const regex = /SEXO\s*[:.]?\s*([MF])/i;
-  const match = texto.match(regex);
-  return match ? match[1].toUpperCase() : null;
-}
-
-// ===== VERIFICACIÓN FACIAL (CON SIMULACIÓN) =====
-async function compararCarasAWS(imagenINE, imagenSelfie) {
-  if (!rekognitionClient) {
-    console.log('🔄 Usando simulación de verificación facial');
-    return true;
-  }
-  try {
-    const ineBytes = fs.readFileSync(imagenINE);
-    const selfieBytes = fs.readFileSync(imagenSelfie);
-    const command = new CompareFacesCommand({
-      SourceImage: { Bytes: ineBytes },
-      TargetImage: { Bytes: selfieBytes },
-      SimilarityThreshold: 70,
-    });
-    const response = await rekognitionClient.send(command);
-    if (response.FaceMatches && response.FaceMatches.length > 0) {
-      return response.FaceMatches[0].Similarity >= 70;
-    }
-    return false;
-  } catch (error) {
-    console.error('Error en comparación facial:', error);
-    return true; // En caso de error, aceptamos (simulación)
-  }
-}
-
-// ===== OBTENER ESTADO DEL INE =====
 const getEstadoINE = async (req, res) => {
   try {
     const result = await pool.query(
@@ -147,107 +47,166 @@ const getEstadoINE = async (req, res) => {
   }
 };
 
-// ===== VALIDAR INE CON IMAGEN Y OCR =====
 const validarINEConImagen = async (req, res) => {
-  const { numero_ine, curp, nombre_completo, fecha_nacimiento, sexo } = req.body;
+  const { numero_ine, curp, nombre_completo, fecha_nacimiento, sexo, entidad_emision } = req.body;
   try {
-    console.log('📥 Datos recibidos:', { numero_ine, curp, nombre_completo, fecha_nacimiento, sexo });
+    console.log('📥 Datos recibidos del formulario:', { numero_ine, curp, nombre_completo, fecha_nacimiento, sexo, entidad_emision });
 
-    // ===== VALIDAR SEXO =====
-    if (!sexo || (sexo !== 'M' && sexo !== 'F')) {
-      console.log(`❌ Sexo inválido: ${sexo}`);
-      return res.status(400).json({ error: 'Debes seleccionar tu sexo: Masculino (M) o Femenino (F).' });
-    }
-
-    // ===== VALIDAR CURP =====
+    // Validar CURP
     const curpValido = validateCURP(curp);
     if (!curpValido) {
       console.log(`❌ CURP inválida: ${curp}`);
-      return res.status(400).json({ error: 'CURP inválida. Debe tener 18 caracteres alfanuméricos (A-Z, Ñ, 0-9).' });
+      return res.status(400).json({ error: 'CURP inválida. Verifica el formato.' });
     }
 
-    // ===== VALIDAR INE =====
+    // Validar INE (formato)
     const ineValido = validateINE(numero_ine);
     if (!ineValido) {
       console.log(`❌ Número de INE inválido: ${numero_ine}`);
-      return res.status(400).json({ error: 'INE inválido. Debe tener 18 caracteres alfanuméricos (A-Z, 0-9).' });
+      return res.status(400).json({ error: 'Número de INE inválido. Verifica formato.' });
     }
 
-    // ===== VERIFICAR DUPLICADOS =====
+    // Verificar duplicados
     const exists = await pool.query(
       'SELECT * FROM ine_validacion WHERE id_cliente = $1 OR numero_ine = $2',
       [req.userId, numero_ine]
     );
-    if (exists.rows.length > 0) return res.status(400).json({ error: 'Esta INE ya está registrada.' });
+    if (exists.rows.length > 0) {
+      return res.status(400).json({ error: 'Esta INE ya está registrada.' });
+    }
 
-    // ===== PROCESAR IMÁGENES =====
+    // Procesar imágenes
     let imagenUrl = null, selfieUrl = null;
-    let datosOCR = {};
-
+    let imagenPath = null, selfiePath = null;
+    
     if (req.files) {
-      // --- Procesar imagen del INE ---
+      // Procesar imagen del INE
       if (req.files['ineImage']) {
         const ineFile = req.files['ineImage'][0];
         try {
+          // Comprimir imagen para reducir tamaño
           const compressedPath = path.join(uploadDir, `compressed_${ineFile.filename}`);
           await sharp(ineFile.path).resize(800, 600).jpeg({ quality: 80 }).toFile(compressedPath);
           fs.unlinkSync(ineFile.path);
           imagenUrl = `/uploads/ine/${path.basename(compressedPath)}`;
-          
-          // ===== EXTRAER DATOS CON OCR =====
-          const textoOCR = await extraerTextoDeImagen(compressedPath);
-          if (textoOCR) {
-            datosOCR = {
-              curp: extraerCURP(textoOCR),
-              nombre: extraerNombre(textoOCR),
-              fecha_nacimiento: extraerFechaNacimiento(textoOCR),
-              clave_elector: extraerClaveElector(textoOCR),
-              sexo: extraerSexo(textoOCR),
-              texto_completo: textoOCR
-            };
-            console.log('📊 Datos extraídos por OCR:', datosOCR);
-          }
+          imagenPath = compressedPath;
+          console.log('✅ Imagen INE comprimida:', imagenPath);
         } catch (e) {
-          console.error('❌ Error procesando imagen INE:', e);
+          console.error('❌ Error comprimiendo INE:', e);
           imagenUrl = `/uploads/ine/${ineFile.filename}`;
+          imagenPath = ineFile.path;
         }
       }
-
-      // --- Procesar Selfie ---
+      
+      // Procesar selfie
       if (req.files['selfieImage']) {
         const selfieFile = req.files['selfieImage'][0];
         selfieUrl = `/uploads/selfies/${selfieFile.filename}`;
+        selfiePath = selfieFile.path;
+        console.log('✅ Selfie guardada:', selfiePath);
       }
     }
-
+    
     if (!imagenUrl || !selfieUrl) {
       return res.status(400).json({ error: 'Debes subir foto de INE y selfie.' });
     }
 
-    // ===== VERIFICACIÓN FACIAL =====
-    const imagenPath = path.join(__dirname, '../../', imagenUrl);
-    const selfiePath = path.join(__dirname, '../../', selfieUrl);
-    let facialVerificado = await compararCarasAWS(imagenPath, selfiePath);
+    // ===== 1. OCR: Extraer texto de la imagen del INE =====
+    console.log('🔍 Iniciando OCR...');
+    const textoOCR = await extraerTextoDeImagen(imagenPath, 'spa');
+    
+    let datosExtraidos = null;
+    let coincidenciaOCR = false;
+    let mensajeOCR = 'No se pudo leer el texto del INE con OCR.';
+    
+    if (textoOCR) {
+      // Validar datos del OCR contra los ingresados por el usuario
+      datosExtraidos = validarDatosConOCR(textoOCR, {
+        curp,
+        nombre_completo,
+        fecha_nacimiento,
+        sexo
+      });
+      
+      console.log('📊 Resultado OCR:', datosExtraidos);
+      
+      // Verificar si los datos coinciden (puntaje mínimo 80% para aprobar)
+      const puntajeMinimo = 60; // 60% de coincidencia
+      if (datosExtraidos.puntaje >= puntajeMinimo) {
+        coincidenciaOCR = true;
+        mensajeOCR = `✅ OCR verificó los datos del INE (${datosExtraidos.puntaje}% de coincidencia)`;
+        console.log('✅ OCR: Datos verificados correctamente');
+      } else {
+        mensajeOCR = `⚠️ OCR: Los datos no coinciden completamente (${datosExtraidos.puntaje}% de coincidencia, mínimo ${puntajeMinimo}%)`;
+        console.log('⚠️ OCR: Datos no coinciden completamente');
+      }
+    } else {
+      mensajeOCR = '⚠️ No se pudo extraer texto de la imagen del INE.';
+      console.log('⚠️ OCR: No se pudo extraer texto');
+    }
 
-    // ===== GUARDAR EN BASE DE DATOS =====
+    // ===== 2. RECONOCIMIENTO FACIAL =====
+    console.log('🔍 Iniciando verificación facial...');
+    const resultadoFacial = await compararCaras(imagenPath, selfiePath);
+    console.log('📊 Resultado facial:', resultadoFacial);
+    
+    const facialVerificado = resultadoFacial.match;
+
+    // ===== 3. Guardar en la base de datos =====
+    // Guardamos los datos extraídos por OCR (si existen) o los del usuario
+    const curpFinal = datosExtraidos?.curpEncontrado || curp;
+    const nombreFinal = datosExtraidos?.nombreEncontrado || nombre_completo;
+    const fechaFinal = datosExtraidos?.fechaEncontrada || fecha_nacimiento;
+    const sexoFinal = datosExtraidos?.sexoEncontrado || sexo || '';
+
     const result = await pool.query(
       `INSERT INTO ine_validacion
-       (id_cliente, numero_ine, curp, nombre_completo, fecha_nacimiento, sexo, documento_imagen, selfie_imagen, validado, facial_verificado)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, $9) RETURNING *`,
-      [req.userId, numero_ine, curp, nombre_completo, fecha_nacimiento, sexo, imagenUrl, selfieUrl, facialVerificado]
+       (id_cliente, numero_ine, curp, nombre_completo, fecha_nacimiento, sexo, 
+        entidad_emision, documento_imagen, selfie_imagen, validado, facial_verificado)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
+      [
+        req.userId, 
+        numero_ine, 
+        curpFinal, 
+        nombreFinal, 
+        fechaFinal, 
+        sexoFinal, 
+        entidad_emision || '', 
+        imagenUrl, 
+        selfieUrl, 
+        coincidenciaOCR,  // validado = coincidencia OCR
+        facialVerificado
+      ]
     );
 
-    // ===== RESPUESTA =====
+    // ===== 4. Respuesta final =====
+    let mensajeFinal = '';
+    if (coincidenciaOCR && facialVerificado) {
+      mensajeFinal = '✅ INE validado correctamente. OCR y verificación facial exitosos.';
+    } else if (coincidenciaOCR && !facialVerificado) {
+      mensajeFinal = '⚠️ INE validado por OCR pero la verificación facial falló. Puedes reintentar.';
+    } else if (!coincidenciaOCR && facialVerificado) {
+      mensajeFinal = '⚠️ Verificación facial exitosa pero los datos del OCR no coinciden. Verifica los datos ingresados.';
+    } else {
+      mensajeFinal = '❌ La validación falló. Revisa que los datos coincidan con tu INE y que las fotos sean claras.';
+    }
+
     res.json({
       success: true,
       validacion: result.rows[0],
-      datosOCR: datosOCR,
-      mensaje: facialVerificado
-        ? '✅ INE validado correctamente. Verificación facial exitosa.'
-        : '⚠️ INE guardado pero la verificación facial no coincidió. Puedes reintentar.',
-      facialVerificado,
+      mensaje: mensajeFinal,
+      ocr: {
+        textoExtraido: textoOCR,
+        datosExtraidos: datosExtraidos,
+        coincidencia: coincidenciaOCR,
+        mensaje: mensajeOCR
+      },
+      facial: {
+        match: facialVerificado,
+        similarity: resultadoFacial.similarity || 0,
+        mensaje: resultadoFacial.mensaje
+      }
     });
-
   } catch (error) {
     console.error('❌ Error en validarINEConImagen:', error);
     res.status(500).json({ error: 'Error al validar INE: ' + error.message });
