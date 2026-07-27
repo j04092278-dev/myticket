@@ -550,9 +550,8 @@ function mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asie
         // Mostrar boleto con el HTML personalizado
         mostrarBoletoModal(res.boleto.personalizado, res.boleto.url);
         showToast(`✅ Compra exitosa! Código: ${res.boleto.codigo}`, 'success');
-        setTimeout(() => {
-          window.location.href = '/mis-boletos.html';
-        }, 3000);
+        // No redirigimos automáticamente para que el usuario vea el boleto
+        // Se queda en el modal hasta que el usuario cierre manualmente
       } else {
         showToast('❌ Error en el pago: ' + (res.error || 'Error desconocido'), 'error');
         submitBtn.textContent = originalText;
@@ -567,7 +566,7 @@ function mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asie
   };
 }
 
-// ========== MODAL BOLETO ==========
+// ========== MODAL BOLETO (CON BOTÓN PARA VER MIS BOLETOS Y CERRAR) ==========
 function mostrarBoletoModal(boletoHTML, urlDescarga) {
   const modal = document.createElement('div');
   modal.id = 'boletoModal';
@@ -584,12 +583,18 @@ function mostrarBoletoModal(boletoHTML, urlDescarga) {
     align-items: center;
     z-index: 10001;
     padding: 20px;
+    animation: fadeIn 0.3s ease;
   `;
+  
   const contenido = document.createElement('div');
   contenido.style.cssText = `background: transparent; max-width: 500px; width: 100%; max-height: 90vh; overflow-y: auto; position: relative;`;
   contenido.innerHTML = boletoHTML;
+  
+  // Botones
   const botonesContainer = document.createElement('div');
   botonesContainer.style.cssText = `display: flex; gap: 10px; justify-content: center; margin-top: 20px; flex-wrap: wrap;`;
+  
+  // Botón "Ver mis boletos"
   const verBoletosBtn = document.createElement('button');
   verBoletosBtn.innerHTML = '🎫 Ver mis boletos';
   verBoletosBtn.style.cssText = `padding:10px 20px; background:linear-gradient(135deg, #ff0000, #cc0000); color:white; border:none; border-radius:50px; font-weight:bold; cursor:pointer;`;
@@ -597,10 +602,14 @@ function mostrarBoletoModal(boletoHTML, urlDescarga) {
     modal.remove();
     window.location.href = '/mis-boletos.html';
   };
+  
+  // Botón "Cerrar" (NO cierra automáticamente)
   const cerrarBtn = document.createElement('button');
   cerrarBtn.innerHTML = '✕ Cerrar';
   cerrarBtn.style.cssText = `padding:10px 20px; background:#333; color:white; border:none; border-radius:50px; font-weight:bold; cursor:pointer;`;
   cerrarBtn.onclick = () => modal.remove();
+  
+  // Botón "Descargar" (si existe)
   if (urlDescarga) {
     const descargarBtn = document.createElement('button');
     descargarBtn.innerHTML = '⬇️ Descargar Boleto';
@@ -608,14 +617,27 @@ function mostrarBoletoModal(boletoHTML, urlDescarga) {
     descargarBtn.onclick = () => window.open(urlDescarga, '_blank');
     botonesContainer.appendChild(descargarBtn);
   }
+  
   botonesContainer.appendChild(verBoletosBtn);
   botonesContainer.appendChild(cerrarBtn);
   contenido.appendChild(botonesContainer);
   modal.appendChild(contenido);
   document.body.appendChild(modal);
+  
+  // Cerrar al hacer clic fuera del contenido
   modal.addEventListener('click', (e) => {
     if (e.target === modal) modal.remove();
   });
+  
+  // Agregar estilos de animación
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+  `;
+  document.head.appendChild(style);
 }
 
 // ========== INICIAR COMPRA ==========

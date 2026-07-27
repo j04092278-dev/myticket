@@ -66,8 +66,7 @@ async function cargarBoletos() {
                 <p style="font-size:0.9rem; color:var(--text-muted);">Código: <span class="boleto-codigo" style="color:var(--red-main); font-family:monospace;">${b.codigo_unico}</span></p>
               </div>
               <div style="text-align:center;">
-                ${b.qr_codigo ? `<img src="${b.qr_codigo}" alt="QR" style="width:100px; height:100px; border:2px solid var(--red-main); border-radius:0.8rem; padding:0.2rem; background:white;">` : ''}
-                <div style="font-size:0.7rem; color:var(--text-muted); margin-top:4px;">Escanea para acceder</div>
+                ${b.boleto_html ? `<button onclick="mostrarBoletoDesdeHTML('${b.id_boleto}')" style="padding:0.4rem 1rem; background:linear-gradient(135deg, #ff0000, #cc0000); color:white; border:none; border-radius:50px; font-weight:bold; cursor:pointer; font-size:0.8rem;">👁️ Ver Boleto</button>` : ''}
                 <button onclick="descargarBoleto(${b.id_boleto})" style="margin-top:0.5rem; padding:0.4rem 1rem; background:linear-gradient(135deg, #00ff88, #00cc66); color:#0a0f2a; border:none; border-radius:50px; font-weight:bold; cursor:pointer; font-size:0.8rem;">
                   ⬇️ Descargar
                 </button>
@@ -91,6 +90,56 @@ async function cargarBoletos() {
       container.innerHTML = `<p style="text-align:center; color:var(--red-light);">❌ Error: ${err.message}</p>`;
     }
   }
+}
+
+function mostrarBoletoDesdeHTML(idBoleto) {
+  // Buscar el boleto en el DOM (si ya está cargado) o pedirlo al servidor
+  const card = document.querySelector(`.boleto-card[data-id="${idBoleto}"]`);
+  if (!card) return;
+  // Si no tenemos el HTML guardado, podemos pedirlo al servidor
+  showToast('🔍 Cargando boleto...', 'info');
+  fetch(`/api/boletos/${idBoleto}/descargar`, { credentials: 'include' })
+    .then(res => res.text())
+    .then(html => {
+      mostrarBoletoModalDesdeHTML(html);
+    })
+    .catch(err => {
+      showToast('❌ Error al cargar el boleto', 'error');
+      console.error(err);
+    });
+}
+
+function mostrarBoletoModalDesdeHTML(html) {
+  const modal = document.createElement('div');
+  modal.id = 'boletoModal';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(10px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10001;
+    padding: 20px;
+    animation: fadeIn 0.3s ease;
+  `;
+  const contenido = document.createElement('div');
+  contenido.style.cssText = `background: transparent; max-width: 500px; width: 100%; max-height: 90vh; overflow-y: auto; position: relative;`;
+  contenido.innerHTML = html;
+  const cerrarBtn = document.createElement('button');
+  cerrarBtn.innerHTML = '✕ Cerrar';
+  cerrarBtn.style.cssText = `padding:10px 20px; background:#333; color:white; border:none; border-radius:50px; font-weight:bold; cursor:pointer; margin-top:20px;`;
+  cerrarBtn.onclick = () => modal.remove();
+  contenido.appendChild(cerrarBtn);
+  modal.appendChild(contenido);
+  document.body.appendChild(modal);
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) modal.remove();
+  });
 }
 
 async function descargarBoleto(idBoleto) {

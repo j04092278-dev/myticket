@@ -3,19 +3,28 @@ const crypto = require('crypto');
 const QRCode = require('qrcode');
 const { encrypt } = require('../utils/encrypt');
 
-// Función para generar HTML del boleto usando QRCode.toDataURL (asincrónico)
-async function generarBoletoHTML(data) {
+/**
+ * Genera el HTML del boleto con imagen de fondo y QR
+ */
+const generarBoletoHTML = async (data) => {
   const { codigo, evento, nombre_usuario, fecha, ubicacion, zona, asiento, precio, imagen_url } = data;
   
-  // Generar QR de forma asincrónica
-  const qrBase64 = await QRCode.toDataURL(JSON.stringify({
-    codigo: codigo,
-    evento: evento,
-    usuario: nombre_usuario,
-    fecha: fecha,
-    zona: zona,
-    asiento: asiento
-  }));
+  // Generar QR de forma asíncrona (CORRECCIÓN)
+  let qrBase64 = '';
+  try {
+    qrBase64 = await QRCode.toDataURL(JSON.stringify({
+      codigo: codigo,
+      evento: evento,
+      usuario: nombre_usuario,
+      fecha: fecha,
+      zona: zona,
+      asiento: asiento
+    }));
+  } catch (err) {
+    console.error('❌ Error generando QR:', err);
+    // QR fallback (texto simple)
+    qrBase64 = '';
+  }
   
   const colors = {
     primary: '#ff0000',
@@ -27,14 +36,19 @@ async function generarBoletoHTML(data) {
     textSecondary: '#9CA3AF',
   };
   
+  // Fondo: si hay imagen, usarla; si no, degradado espacial
   let fondoStyle = `background: linear-gradient(145deg, ${colors.dark}, ${colors.bg});`;
+  let overlayStyle = '';
   if (imagen_url) {
-    fondoStyle = `background-image: url('${imagen_url}'); background-size: cover; background-position: center; position: relative;`;
+    fondoStyle = `background-image: url('${imagen_url}'); background-size: cover; background-position: center;`;
+    overlayStyle = `
+      <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10,10,10,0.7); z-index: 0; border-radius: 16px;"></div>
+    `;
   }
   
   return `
-    <div style="${fondoStyle} color: ${colors.text}; padding: 24px; border-radius: 16px; border: 2px solid ${colors.primary}; max-width: 400px; margin: 0 auto; font-family: 'Poppins', sans-serif; box-shadow: 0 0 40px rgba(255,0,0,0.3); position: relative; overflow: hidden; ${imagen_url ? 'min-height: 450px; display: flex; flex-direction: column; justify-content: center;' : ''}">
-      ${imagen_url ? `<div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10,10,10,0.7); z-index: 0;"></div>` : ''}
+    <div style="${fondoStyle} color: ${colors.text}; padding: 24px; border-radius: 16px; border: 2px solid ${colors.primary}; max-width: 400px; margin: 0 auto; font-family: 'Poppins', sans-serif; box-shadow: 0 0 40px rgba(255,0,0,0.3); position: relative; overflow: hidden; min-height: 400px; display: flex; flex-direction: column; justify-content: center;">
+      ${overlayStyle}
       <div style="position: relative; z-index: 1;">
         <div style="text-align: center; margin-bottom: 15px;">
           <h2 style="color: ${colors.light}; font-size: 1.8rem; margin: 0; font-family: 'Orbitron', sans-serif;">🚀 MyTicket</h2>
@@ -49,7 +63,7 @@ async function generarBoletoHTML(data) {
           <p><strong style="color: ${colors.light};">Precio pagado:</strong> $${precio}</p>
         </div>
         <div style="text-align: center; margin: 15px 0;">
-          <img src="${qrBase64}" alt="QR" style="width: 120px; height: 120px; border: 3px solid ${colors.primary}; border-radius: 12px; padding: 0.2rem; background: white;"/>
+          ${qrBase64 ? `<img src="${qrBase64}" alt="QR" style="width: 120px; height: 120px; border: 3px solid ${colors.primary}; border-radius: 12px; padding: 0.2rem; background: white;"/>` : `<div style="width: 120px; height: 120px; background: rgba(255,255,255,0.1); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #666;">QR</div>`}
         </div>
         <div style="text-align: center; margin-top: 5px;">
           <p style="font-size: 0.8rem; color: ${colors.textSecondary}; letter-spacing: 1px;">Código: ${codigo}</p>
@@ -58,7 +72,7 @@ async function generarBoletoHTML(data) {
       </div>
     </div>
   `;
-}
+};
 
 const comprarBoletos = async (req, res) => {
   const { eventoId, cantidad, zona, asiento, num_tarjeta, cv, factor_tarjeta, tipoPrecio } = req.body;
@@ -91,17 +105,12 @@ const comprarBoletos = async (req, res) => {
 
     // Generar código único
     const codigoUnico = crypto.randomBytes(8).toString('hex').toUpperCase();
-    const qrCode = await QRCode.toDataURL(JSON.stringify({
-      codigo: codigoUnico,
-      evento: eventoData.nombre_evento,
-      usuario: req.userEmail
-    }));
 
     // Obtener datos del usuario
     const userData = await pool.query('SELECT nombre FROM cliente WHERE id_cliente = $1', [req.userId]);
     const nombre_usuario = userData.rows[0].nombre;
 
-    // Generar HTML del boleto (usando la función asincrónica)
+    // Generar HTML del boleto (con imagen de fondo)
     const imagen_url = eventoData.imagen_url || null;
     const boletoHTML = await generarBoletoHTML({
       codigo: codigoUnico,
@@ -117,9 +126,9 @@ const comprarBoletos = async (req, res) => {
 
     // Insertar boleto en BD (con el HTML)
     const boleto = await client.query(
-      `INSERT INTO boletos (id_evento, id_cliente, zona, asiento, codigo_unico, qr_codigo, estatus, tipo_precio, boleto_html)
-       VALUES ($1,$2,$3,$4,$5,$6,'activo',$7,$8) RETURNING id_boleto`,
-      [eventoId, req.userId, zona || 'General', asiento || 'Libre', codigoUnico, qrCode, tipoPrecio || 'normal', boletoHTML]
+      `INSERT INTO boletos (id_evento, id_cliente, zona, asiento, codigo_unico, estatus, tipo_precio, boleto_html)
+       VALUES ($1,$2,$3,$4,$5,'activo',$6,$7) RETURNING id_boleto`,
+      [eventoId, req.userId, zona || 'General', asiento || 'Libre', codigoUnico, tipoPrecio || 'normal', boletoHTML]
     );
     const boletoId = boleto.rows[0].id_boleto;
 
@@ -166,7 +175,6 @@ const comprarBoletos = async (req, res) => {
       boleto: {
         id: boletoId,
         codigo: codigoUnico,
-        qr: qrCode,
         evento: eventoData.nombre_evento,
         cantidad,
         total: precioUnitario * cantidad,
@@ -190,7 +198,7 @@ const comprarBoletos = async (req, res) => {
 const getMisBoletos = async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT b.id_boleto, b.codigo_unico, b.zona, b.asiento, b.estatus, b.qr_codigo, b.tipo_precio, b.boleto_html,
+      `SELECT b.id_boleto, b.codigo_unico, b.zona, b.asiento, b.estatus, b.tipo_precio, b.boleto_html,
               e.nombre_evento, e.fecha_evento, e.ubicacion, v.precio_pagado,
               c.nombre as nombre_usuario, e.imagen_url
        FROM boletos b
@@ -211,7 +219,6 @@ const getMisBoletos = async (req, res) => {
 const descargarBoleto = async (req, res) => {
   const { id } = req.params;
   try {
-    // Verificar que el boleto pertenece al usuario autenticado
     const result = await pool.query(
       'SELECT boleto_html, codigo_unico FROM boletos WHERE id_boleto = $1 AND id_cliente = $2',
       [id, req.userId]
