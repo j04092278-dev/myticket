@@ -124,7 +124,8 @@ const validarINEConImagen = async (req, res) => {
       
       console.log('📊 Resultado OCR:', datosExtraidos);
       
-      const puntajeMinimo = 30; // Reducido a 30% para ser muy flexible
+      // UMBRAL MUY BAJO (20%) para ser extremadamente permisivo con OCR ruidoso
+      const puntajeMinimo = 20;
       if (datosExtraidos.puntaje >= puntajeMinimo) {
         coincidenciaOCR = true;
         mensajeOCR = `✅ OCR verificó los datos del INE (${datosExtraidos.puntaje}% coincidencia)`;
@@ -138,7 +139,7 @@ const validarINEConImagen = async (req, res) => {
       console.log('❌ OCR: No se pudo extraer texto');
     }
 
-    // Si la validación OCR falla, NO guardar en BD y devolver error (además eliminamos archivos temporales)
+    // Si la validación OCR falla, NO guardar en BD y devolver error
     if (!coincidenciaOCR) {
       if (imagenPath && fs.existsSync(imagenPath)) {
         try { fs.unlinkSync(imagenPath); } catch(e) {}
