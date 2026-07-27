@@ -444,7 +444,7 @@ function mostrarModalValidacionINE(callback) {
   };
 }
 
-// ========== MODAL PAGO ==========
+// ========== MODAL PAGO (COMPLETO Y FUNCIONAL) ==========
 function mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asiento, eventoNombre, precioUnitario) {
   const total = precioUnitario * cantidad;
   const modal = document.createElement('div');
@@ -514,6 +514,7 @@ function mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asie
   document.body.appendChild(modal);
   document.getElementById('cerrarPago').onclick = () => modal.remove();
 
+  // ===== EVENTO SUBMIT DEL FORMULARIO DE PAGO =====
   document.getElementById('pagoForm').onsubmit = async (e) => {
     e.preventDefault();
     console.log('🔄 Procesando pago...');
@@ -529,6 +530,7 @@ function mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asie
       return;
     }
 
+    // Mostrar loader en el botón
     const submitBtn = e.target.querySelector('button[type="submit"]');
     const originalText = submitBtn.textContent;
     submitBtn.textContent = '⏳ Procesando...';
@@ -545,6 +547,7 @@ function mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asie
 
       if (res.success) {
         modal.remove();
+        // Mostrar boleto con el HTML personalizado
         mostrarBoletoModal(res.boleto.personalizado, res.boleto.url);
         showToast(`✅ Compra exitosa! Código: ${res.boleto.codigo}`, 'success');
         setTimeout(() => {
