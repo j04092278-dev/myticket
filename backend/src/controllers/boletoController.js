@@ -3,10 +3,12 @@ const crypto = require('crypto');
 const QRCode = require('qrcode');
 const { encrypt } = require('../utils/encrypt');
 
-const generarBoletoHTML = (data) => {
+// Función para generar HTML del boleto usando QRCode.toDataURL (asincrónico)
+async function generarBoletoHTML(data) {
   const { codigo, evento, nombre_usuario, fecha, ubicacion, zona, asiento, precio, imagen_url } = data;
   
-  const qrBase64 = QRCode.toDataURLSync(JSON.stringify({
+  // Generar QR de forma asincrónica
+  const qrBase64 = await QRCode.toDataURL(JSON.stringify({
     codigo: codigo,
     evento: evento,
     usuario: nombre_usuario,
@@ -56,7 +58,7 @@ const generarBoletoHTML = (data) => {
       </div>
     </div>
   `;
-};
+}
 
 const comprarBoletos = async (req, res) => {
   const { eventoId, cantidad, zona, asiento, num_tarjeta, cv, factor_tarjeta, tipoPrecio } = req.body;
@@ -99,9 +101,9 @@ const comprarBoletos = async (req, res) => {
     const userData = await pool.query('SELECT nombre FROM cliente WHERE id_cliente = $1', [req.userId]);
     const nombre_usuario = userData.rows[0].nombre;
 
-    // Generar HTML del boleto
+    // Generar HTML del boleto (usando la función asincrónica)
     const imagen_url = eventoData.imagen_url || null;
-    const boletoHTML = generarBoletoHTML({
+    const boletoHTML = await generarBoletoHTML({
       codigo: codigoUnico,
       evento: eventoData.nombre_evento,
       nombre_usuario: nombre_usuario,
