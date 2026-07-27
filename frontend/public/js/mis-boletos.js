@@ -18,7 +18,6 @@ async function loadUser() {
       cargarBoletos();
     } else {
       console.log('⚠️ Usuario no autenticado en Mis Boletos, redirigiendo a login');
-      // Redirigir solo si no hay usuario
       window.location.href = '/login.html?redirect=mis-boletos';
     }
   } catch(e) {
@@ -69,6 +68,9 @@ async function cargarBoletos() {
               <div style="text-align:center;">
                 ${b.qr_codigo ? `<img src="${b.qr_codigo}" alt="QR" style="width:100px; height:100px; border:2px solid var(--red-main); border-radius:0.8rem; padding:0.2rem; background:white;">` : ''}
                 <div style="font-size:0.7rem; color:var(--text-muted); margin-top:4px;">Escanea para acceder</div>
+                <button onclick="descargarBoleto(${b.id_boleto})" style="margin-top:0.5rem; padding:0.4rem 1rem; background:linear-gradient(135deg, #00ff88, #00cc66); color:#0a0f2a; border:none; border-radius:50px; font-weight:bold; cursor:pointer; font-size:0.8rem;">
+                  ⬇️ Descargar
+                </button>
               </div>
             </div>
             <div style="margin-top:0.8rem; padding-top:0.8rem; border-top:1px dashed var(--red-main); text-align:center; font-size:0.7rem; color:var(--text-muted);">
@@ -88,6 +90,34 @@ async function cargarBoletos() {
       showToast('Error al cargar tus boletos', 'error');
       container.innerHTML = `<p style="text-align:center; color:var(--red-light);">❌ Error: ${err.message}</p>`;
     }
+  }
+}
+
+async function descargarBoleto(idBoleto) {
+  try {
+    const res = await fetch(`/api/boletos/${idBoleto}/descargar`, {
+      credentials: 'include'
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      showToast('❌ Error al descargar: ' + (data.error || 'Error desconocido'), 'error');
+      return;
+    }
+    const html = await res.text();
+    // Crear un blob y descargar
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `boleto_${idBoleto}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('✅ Boleto descargado correctamente', 'success');
+  } catch (err) {
+    console.error('❌ Error en descarga:', err);
+    showToast('❌ Error al descargar el boleto', 'error');
   }
 }
 

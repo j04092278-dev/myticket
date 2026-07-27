@@ -1,14 +1,12 @@
 const pool = require('../config/database');
 const crypto = require('crypto');
 const QRCode = require('qrcode');
-const path = require('path');
-const fs = require('fs');
 const { encrypt } = require('../utils/encrypt');
 
-const generarBoletoPersonalizado = async (data) => {
+const generarBoletoHTML = (data) => {
   const { codigo, evento, nombre_usuario, fecha, ubicacion, zona, asiento, precio, imagen_url } = data;
   
-  const qrBase64 = await QRCode.toDataURL(JSON.stringify({
+  const qrBase64 = QRCode.toDataURLSync(JSON.stringify({
     codigo: codigo,
     evento: evento,
     usuario: nombre_usuario,
@@ -32,7 +30,7 @@ const generarBoletoPersonalizado = async (data) => {
     fondoStyle = `background-image: url('${imagen_url}'); background-size: cover; background-position: center; position: relative;`;
   }
   
-  const html = `
+  return `
     <div style="${fondoStyle} color: ${colors.text}; padding: 24px; border-radius: 16px; border: 2px solid ${colors.primary}; max-width: 400px; margin: 0 auto; font-family: 'Poppins', sans-serif; box-shadow: 0 0 40px rgba(255,0,0,0.3); position: relative; overflow: hidden; ${imagen_url ? 'min-height: 450px; display: flex; flex-direction: column; justify-content: center;' : ''}">
       ${imagen_url ? `<div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10,10,10,0.7); z-index: 0;"></div>` : ''}
       <div style="position: relative; z-index: 1;">
@@ -58,14 +56,6 @@ const generarBoletoPersonalizado = async (data) => {
       </div>
     </div>
   `;
-  
-  const fileName = `boleto_${codigo}.html`;
-  const filePath = path.join(__dirname, '../../public/boletos', fileName);
-  if (!fs.existsSync(path.dirname(filePath))) {
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  }
-  fs.writeFileSync(filePath, html);
-  return { html, filePath: `/boletos/${fileName}` };
 };
 
 const comprarBoletos = async (req, res) => {
@@ -74,11 +64,13 @@ const comprarBoletos = async (req, res) => {
   try {
     await client.query('BEGIN');
     
+    // Verificar evento
     const evento = await client.query('SELECT * FROM evento WHERE id_evento = $1 FOR UPDATE', [eventoId]);
     if (evento.rows.length === 0) throw new Error('Evento no existe');
     const eventoData = evento.rows[0];
     if (eventoData.boletos_disponibles < cantidad) throw new Error('Boletos insuficientes');
 
+    // Verificar INE
     const ineCheck = await client.query(
       'SELECT validado, facial_verificado FROM ine_validacion WHERE id_cliente = $1',
       [req.userId]
@@ -90,10 +82,12 @@ const comprarBoletos = async (req, res) => {
       throw new Error('La verificación facial no ha sido exitosa. Revalida tu INE.');
     }
 
+    // Calcular precio
     const precioUnitario = (tipoPrecio === 'preventa' && eventoData.es_preventa && eventoData.precio_preventa)
       ? eventoData.precio_preventa
       : eventoData.precio_normal;
 
+    // Generar código único
     const codigoUnico = crypto.randomBytes(8).toString('hex').toUpperCase();
     const qrCode = await QRCode.toDataURL(JSON.stringify({
       codigo: codigoUnico,
@@ -101,27 +95,51 @@ const comprarBoletos = async (req, res) => {
       usuario: req.userEmail
     }));
 
-    const boleto = await client.query(
-      `INSERT INTO boletos (id_evento, id_cliente, zona, asiento, codigo_unico, qr_codigo, estatus, tipo_precio)
-       VALUES ($1,$2,$3,$4,$5,$6,'activo',$7) RETURNING *`,
-      [eventoId, req.userId, zona || 'General', asiento || 'Libre', codigoUnico, qrCode, tipoPrecio || 'normal']
-    );
+    // Obtener datos del usuario
+    const userData = await pool.query('SELECT nombre FROM cliente WHERE id_cliente = $1', [req.userId]);
+    const nombre_usuario = userData.rows[0].nombre;
 
+    // Generar HTML del boleto
+    const imagen_url = eventoData.imagen_url || null;
+    const boletoHTML = generarBoletoHTML({
+      codigo: codigoUnico,
+      evento: eventoData.nombre_evento,
+      nombre_usuario: nombre_usuario,
+      fecha: eventoData.fecha_evento,
+      ubicacion: eventoData.ubicacion,
+      zona: zona || 'General',
+      asiento: asiento || 'Libre',
+      precio: precioUnitario,
+      imagen_url: imagen_url
+    });
+
+    // Insertar boleto en BD (con el HTML)
+    const boleto = await client.query(
+      `INSERT INTO boletos (id_evento, id_cliente, zona, asiento, codigo_unico, qr_codigo, estatus, tipo_precio, boleto_html)
+       VALUES ($1,$2,$3,$4,$5,$6,'activo',$7,$8) RETURNING id_boleto`,
+      [eventoId, req.userId, zona || 'General', asiento || 'Libre', codigoUnico, qrCode, tipoPrecio || 'normal', boletoHTML]
+    );
+    const boletoId = boleto.rows[0].id_boleto;
+
+    // Actualizar disponibilidad
     await client.query('UPDATE evento SET boletos_disponibles = boletos_disponibles - $1 WHERE id_evento = $2', [cantidad, eventoId]);
 
+    // Registrar venta
     const referencia = `REF${codigoUnico.slice(0,6)}`;
     await client.query(
       `INSERT INTO venta (id_cliente, id_evento, id_boleto, fecha_venta, hora_venta, precio_pagado, referencia_boleto)
        VALUES ($1,$2,$3,CURRENT_DATE,CURRENT_TIME,$4,$5)`,
-      [req.userId, eventoId, boleto.rows[0].id_boleto, precioUnitario * cantidad, referencia]
+      [req.userId, eventoId, boletoId, precioUnitario * cantidad, referencia]
     );
 
+    // Registrar transacción
     await client.query(
       `INSERT INTO transacciones (id_cliente, id_boleto, fecha_transaccion, monto, estado)
        VALUES ($1,$2,CURRENT_DATE,$3,'completado')`,
-      [req.userId, boleto.rows[0].id_boleto, precioUnitario * cantidad]
+      [req.userId, boletoId, precioUnitario * cantidad]
     );
 
+    // Guardar datos de tarjeta (opcional)
     if (num_tarjeta && cv && factor_tarjeta) {
       try {
         const encryptedCard = encrypt(num_tarjeta);
@@ -141,25 +159,10 @@ const comprarBoletos = async (req, res) => {
 
     await client.query('COMMIT');
 
-    const userData = await pool.query('SELECT nombre FROM cliente WHERE id_cliente = $1', [req.userId]);
-    const nombre_usuario = userData.rows[0].nombre;
-
-    const imagen_url = eventoData.imagen_url || null;
-    const boletoPersonalizado = await generarBoletoPersonalizado({
-      codigo: codigoUnico,
-      evento: eventoData.nombre_evento,
-      nombre_usuario: nombre_usuario,
-      fecha: eventoData.fecha_evento,
-      ubicacion: eventoData.ubicacion,
-      zona: zona || 'General',
-      asiento: asiento || 'Libre',
-      precio: precioUnitario,
-      imagen_url: imagen_url
-    });
-
     res.json({
       success: true,
       boleto: {
+        id: boletoId,
         codigo: codigoUnico,
         qr: qrCode,
         evento: eventoData.nombre_evento,
@@ -168,8 +171,8 @@ const comprarBoletos = async (req, res) => {
         zona: zona || 'General',
         asiento: asiento || 'Libre',
         tipoPrecio,
-        personalizado: boletoPersonalizado.html,
-        url: boletoPersonalizado.filePath
+        personalizado: boletoHTML,
+        url: `/api/boletos/${boletoId}/descargar`
       },
       mensaje: '✅ Compra realizada con éxito'
     });
@@ -185,7 +188,7 @@ const comprarBoletos = async (req, res) => {
 const getMisBoletos = async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT b.id_boleto, b.codigo_unico, b.zona, b.asiento, b.estatus, b.qr_codigo, b.tipo_precio,
+      `SELECT b.id_boleto, b.codigo_unico, b.zona, b.asiento, b.estatus, b.qr_codigo, b.tipo_precio, b.boleto_html,
               e.nombre_evento, e.fecha_evento, e.ubicacion, v.precio_pagado,
               c.nombre as nombre_usuario, e.imagen_url
        FROM boletos b
@@ -203,4 +206,25 @@ const getMisBoletos = async (req, res) => {
   }
 };
 
-module.exports = { comprarBoletos, getMisBoletos };
+const descargarBoleto = async (req, res) => {
+  const { id } = req.params;
+  try {
+    // Verificar que el boleto pertenece al usuario autenticado
+    const result = await pool.query(
+      'SELECT boleto_html, codigo_unico FROM boletos WHERE id_boleto = $1 AND id_cliente = $2',
+      [id, req.userId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Boleto no encontrado' });
+    }
+    const boleto = result.rows[0];
+    res.setHeader('Content-Type', 'text/html');
+    res.setHeader('Content-Disposition', `attachment; filename="boleto_${boleto.codigo_unico}.html"`);
+    res.send(boleto.boleto_html);
+  } catch (error) {
+    console.error('❌ Error al descargar boleto:', error);
+    res.status(500).json({ error: 'Error al descargar boleto' });
+  }
+};
+
+module.exports = { comprarBoletos, getMisBoletos, descargarBoleto };
