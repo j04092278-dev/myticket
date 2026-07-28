@@ -16,6 +16,9 @@ const pagoRoutes = require('./routes/pagoRoutes');
 
 const app = express();
 
+// ===== STRIPE WEBHOOK (necesita raw body) =====
+app.use('/api/pagos/webhook', express.raw({ type: 'application/json' }));
+
 // ===== CORS CONFIGURACIÓN =====
 const allowedOrigins = [
   'http://localhost:3000',
@@ -35,7 +38,7 @@ app.use(cors({
       callback(new Error('No permitido por CORS'));
     }
   },
-  credentials: true, // ⬅️ PERMITIR COOKIES
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
 }));

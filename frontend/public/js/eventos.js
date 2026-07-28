@@ -244,7 +244,7 @@ async function procederConCompra(eventoId, esPreventa, eventoNombre, precioUnita
   mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asiento, eventoNombre, precioUnitario);
 }
 
-// ========== VALIDACIÓN DE INE CON OCR Y MENSAJE DE ESCANEO ==========
+// ========== VALIDACIÓN DE INE CON OCR Y MENSAJE DE ESCANEO (COMPLETA) ==========
 function mostrarModalValidacionINE(callback) {
   const modal = document.createElement('div');
   modal.id = 'ineModal';
@@ -444,7 +444,7 @@ function mostrarModalValidacionINE(callback) {
   };
 }
 
-// ========== MODAL PAGO (COMPLETO Y FUNCIONAL) ==========
+// ========== MODAL PAGO CON STRIPE CHECKOUT ==========
 function mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asiento, eventoNombre, precioUnitario) {
   const total = precioUnitario * cantidad;
   const modal = document.createElement('div');
@@ -464,109 +464,60 @@ function mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asie
     padding: 20px;
   `;
   modal.innerHTML = `
-    <div style="background: linear-gradient(145deg, rgba(10,20,45,0.95), rgba(26,11,46,0.95)); border-radius: 2rem; padding: 2rem; max-width: 520px; width: 100%; border: 2px solid #ff0000; box-shadow: 0 0 40px rgba(255,0,0,0.3);">
-      <h2 style="color: #ff3333; text-align: center; margin-bottom: 0.5rem;">💳 Pago Seguro</h2>
-      <p style="color: #aaa; text-align: center; margin-bottom: 1.5rem;">Tus datos están encriptados con AES-256-GCM</p>
+    <div style="background: linear-gradient(145deg, rgba(10,20,45,0.95), rgba(26,11,46,0.95)); border-radius: 2rem; padding: 2rem; max-width: 480px; width: 100%; border: 2px solid #ff0000; box-shadow: 0 0 40px rgba(255,0,0,0.3);">
+      <h2 style="color: #ff3333; text-align: center; margin-bottom: 0.5rem;">💳 Pago Seguro con Stripe</h2>
+      <p style="color: #aaa; text-align: center; margin-bottom: 1.5rem;">Serás redirigido a Stripe para completar el pago de forma segura.</p>
       <div style="background: rgba(255,255,255,0.05); border-radius: 1rem; padding: 1rem; margin-bottom: 1.5rem; border-left: 4px solid #ff0000;">
         <p style="color: var(--text-secondary); margin: 0.2rem 0;"><strong style="color: #ff3333;">Evento:</strong> ${eventoNombre}</p>
         <p style="color: var(--text-secondary); margin: 0.2rem 0;"><strong style="color: #ff3333;">Cantidad:</strong> ${cantidad} boletos</p>
         <p style="color: var(--text-secondary); margin: 0.2rem 0;"><strong style="color: #ff3333;">Zona:</strong> ${zona}</p>
         <p style="color: var(--text-secondary); margin: 0.2rem 0; font-size: 1.2rem;"><strong style="color: #ff3333;">Total:</strong> $${total.toFixed(2)}</p>
       </div>
-      <form id="pagoForm">
-        <div style="margin-bottom: 1rem;">
-          <label style="color: #ccc; display: block; margin-bottom: 0.3rem;">Nombre en la tarjeta</label>
-          <input type="text" id="nombreTarjeta" placeholder="Como aparece en la tarjeta" required style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem; box-sizing:border-box;">
-        </div>
-        <div style="margin-bottom: 1rem;">
-          <label style="color: #ccc; display: block; margin-bottom: 0.3rem;">Número de tarjeta</label>
-          <input type="text" id="numTarjeta" placeholder="1234 5678 9012 3456" required style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem; box-sizing:border-box;">
-        </div>
-        <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
-          <div style="flex: 1;">
-            <label style="color: #ccc; display: block; margin-bottom: 0.3rem;">Fecha de vencimiento</label>
-            <input type="text" id="fechaVencimiento" placeholder="MM/AA" required style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem; box-sizing:border-box;">
-          </div>
-          <div style="flex: 1;">
-            <label style="color: #ccc; display: block; margin-bottom: 0.3rem;">CVV</label>
-            <input type="password" id="cvv" placeholder="123" required style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem; box-sizing:border-box;">
-          </div>
-        </div>
-        <div style="margin-bottom: 1.5rem;">
-          <label style="color: #ccc; display: block; margin-bottom: 0.3rem;">Tipo de tarjeta</label>
-          <select id="tipoTarjeta" style="width:100%; padding:0.8rem; background:rgba(255,255,255,0.1); border:1px solid rgba(255,0,0,0.5); border-radius:0.8rem; color:white; font-size:1rem; box-sizing:border-box; appearance:auto; -webkit-appearance:auto; cursor:pointer;">
-            <option value="VISA" style="background:#1a1a1a; color:white;">VISA</option>
-            <option value="Mastercard" style="background:#1a1a1a; color:white;">Mastercard</option>
-            <option value="AMEX" style="background:#1a1a1a; color:white;">American Express</option>
-          </select>
-        </div>
-        <div class="pago-seguro" style="display:flex; align-items:center; justify-content:center; gap:0.5rem; color:var(--text-muted); font-size:0.85rem; margin-bottom:1rem;">
-          <i class="fas fa-lock" style="color:#00D4FF;"></i>
-          <span>Transacción segura con encriptación AES-256</span>
-        </div>
-        <button type="submit" style="background:linear-gradient(135deg, #cc0000, #ff0000); border:none; padding:0.8rem; border-radius:2rem; font-weight:bold; font-size:1.1rem; color:white; cursor:pointer; width:100%; box-shadow:0 0 20px rgba(255,0,0,0.3); transition:0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
-          ✅ Pagar Ahora
+      <div style="display: flex; gap: 1rem;">
+        <button id="pagarBtn" style="flex:2; background:linear-gradient(135deg, #00ff88, #00cc66); border:none; padding:0.8rem; border-radius:2rem; font-weight:bold; font-size:1rem; color:#0a0f2a; cursor:pointer; box-shadow:0 0 20px rgba(0,255,136,0.3); transition:0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+          ✅ Pagar con Stripe
         </button>
-      </form>
-      <button id="cerrarPago" style="margin-top:1rem; background:rgba(255,255,255,0.1); color:#ff6666; border:1px solid #ff6666; padding:0.5rem 1rem; border-radius:2rem; cursor:pointer; width:100%; font-weight:bold;">✕ Cancelar</button>
+        <button id="cancelarPago" style="flex:1; background:rgba(255,255,255,0.1); border:1px solid #ff6666; padding:0.8rem; border-radius:2rem; font-weight:bold; color:#ff6666; cursor:pointer;">
+          ✕ Cancelar
+        </button>
+      </div>
+      <p style="color: var(--text-muted); font-size: 0.7rem; text-align: center; margin-top: 1rem;">
+        🔒 Transacción segura encriptada por Stripe. No almacenamos tus datos de tarjeta.
+      </p>
     </div>
   `;
   document.body.appendChild(modal);
-  document.getElementById('cerrarPago').onclick = () => modal.remove();
-
-  // ===== EVENTO SUBMIT DEL FORMULARIO DE PAGO =====
-  document.getElementById('pagoForm').onsubmit = async (e) => {
-    e.preventDefault();
-    console.log('🔄 Procesando pago...');
-
-    const nombre = document.getElementById('nombreTarjeta').value.trim();
-    const num_tarjeta = document.getElementById('numTarjeta').value.trim();
-    const fecha = document.getElementById('fechaVencimiento').value.trim();
-    const cv = document.getElementById('cvv').value.trim();
-    const factor_tarjeta = document.getElementById('tipoTarjeta').value;
-
-    if (!nombre || !num_tarjeta || !fecha || !cv) {
-      showToast('Por favor, completa todos los campos de la tarjeta', 'warning');
-      return;
-    }
-
-    // Mostrar loader en el botón
-    const submitBtn = e.target.querySelector('button[type="submit"]');
-    const originalText = submitBtn.textContent;
-    submitBtn.textContent = '⏳ Procesando...';
-    submitBtn.disabled = true;
-
+  
+  document.getElementById('cancelarPago').onclick = () => modal.remove();
+  document.getElementById('pagarBtn').onclick = async () => {
     try {
-      const res = await API.comprarBoleto(eventoId, cantidad, zona, asiento, {
-        num_tarjeta,
-        cv,
-        factor_tarjeta
-      }, tipoPrecio);
-
-      console.log('📦 Respuesta del servidor:', res);
-
-      if (res.success) {
-        modal.remove();
-        // Mostrar boleto con el HTML personalizado
-        mostrarBoletoModal(res.boleto.personalizado, res.boleto.url);
-        showToast(`✅ Compra exitosa! Código: ${res.boleto.codigo}`, 'success');
-        // No redirigimos automáticamente para que el usuario vea el boleto
-        // Se queda en el modal hasta que el usuario cierre manualmente
+      const res = await fetch('/api/pagos/crear-sesion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventoId,
+          cantidad,
+          zona,
+          asiento,
+          tipoPrecio
+        }),
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (data.url) {
+        // Redirigir a Stripe Checkout
+        window.location.href = data.url;
       } else {
-        showToast('❌ Error en el pago: ' + (res.error || 'Error desconocido'), 'error');
-        submitBtn.textContent = originalText;
-        submitBtn.disabled = false;
+        showToast('❌ Error al iniciar el pago: ' + (data.error || 'Error desconocido'), 'error');
       }
     } catch (err) {
-      console.error('❌ Error en pago:', err);
-      showToast('❌ Error en el pago: ' + err.message, 'error');
-      submitBtn.textContent = originalText;
-      submitBtn.disabled = false;
+      console.error('❌ Error:', err);
+      showToast('❌ Error de conexión al iniciar pago', 'error');
     }
   };
 }
 
-// ========== MODAL BOLETO (CON BOTÓN PARA VER MIS BOLETOS Y CERRAR) ==========
+// ========== MODAL BOLETO ==========
 function mostrarBoletoModal(boletoHTML, urlDescarga) {
   const modal = document.createElement('div');
   modal.id = 'boletoModal';
@@ -590,11 +541,9 @@ function mostrarBoletoModal(boletoHTML, urlDescarga) {
   contenido.style.cssText = `background: transparent; max-width: 500px; width: 100%; max-height: 90vh; overflow-y: auto; position: relative;`;
   contenido.innerHTML = boletoHTML;
   
-  // Botones
   const botonesContainer = document.createElement('div');
   botonesContainer.style.cssText = `display: flex; gap: 10px; justify-content: center; margin-top: 20px; flex-wrap: wrap;`;
   
-  // Botón "Ver mis boletos"
   const verBoletosBtn = document.createElement('button');
   verBoletosBtn.innerHTML = '🎫 Ver mis boletos';
   verBoletosBtn.style.cssText = `padding:10px 20px; background:linear-gradient(135deg, #ff0000, #cc0000); color:white; border:none; border-radius:50px; font-weight:bold; cursor:pointer;`;
@@ -603,13 +552,11 @@ function mostrarBoletoModal(boletoHTML, urlDescarga) {
     window.location.href = '/mis-boletos.html';
   };
   
-  // Botón "Cerrar" (NO cierra automáticamente)
   const cerrarBtn = document.createElement('button');
   cerrarBtn.innerHTML = '✕ Cerrar';
   cerrarBtn.style.cssText = `padding:10px 20px; background:#333; color:white; border:none; border-radius:50px; font-weight:bold; cursor:pointer;`;
   cerrarBtn.onclick = () => modal.remove();
   
-  // Botón "Descargar" (si existe)
   if (urlDescarga) {
     const descargarBtn = document.createElement('button');
     descargarBtn.innerHTML = '⬇️ Descargar Boleto';
@@ -624,12 +571,10 @@ function mostrarBoletoModal(boletoHTML, urlDescarga) {
   modal.appendChild(contenido);
   document.body.appendChild(modal);
   
-  // Cerrar al hacer clic fuera del contenido
   modal.addEventListener('click', (e) => {
     if (e.target === modal) modal.remove();
   });
   
-  // Agregar estilos de animación
   const style = document.createElement('style');
   style.textContent = `
     @keyframes fadeIn {
