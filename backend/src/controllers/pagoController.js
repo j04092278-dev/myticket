@@ -1,3 +1,4 @@
+// backend/src/controllers/pagoController.js
 const pool = require('../config/database');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const crypto = require('crypto');
@@ -31,6 +32,19 @@ const crearSesionPago = async (req, res) => {
     const total = precioUnitario * cantidad;
     const totalCentavos = Math.round(total * 100); // Stripe trabaja en centavos
 
+    // Validar URL de la imagen
+    let imagenUrl = eventoData.imagen_url;
+    let imagenes = [];
+    if (imagenUrl) {
+      // Verificar que sea una URL absoluta (empiece con http:// o https://)
+      if (imagenUrl.startsWith('http://') || imagenUrl.startsWith('https://')) {
+        imagenes = [imagenUrl];
+      } else {
+        console.warn('⚠️ URL de imagen no válida para Stripe:', imagenUrl);
+        // No agregamos la imagen para evitar el error
+      }
+    }
+
     // Crear sesión de Checkout
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
@@ -40,7 +54,7 @@ const crearSesionPago = async (req, res) => {
           product_data: {
             name: eventoData.nombre_evento,
             description: `${cantidad} boleto(s) - Zona: ${zona || 'General'}`,
-            images: eventoData.imagen_url ? [eventoData.imagen_url] : [],
+            images: imagenes, // Ahora seguro, sin URL inválida
           },
           unit_amount: totalCentavos,
         },
