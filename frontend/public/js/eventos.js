@@ -244,7 +244,7 @@ async function procederConCompra(eventoId, esPreventa, eventoNombre, precioUnita
   mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asiento, eventoNombre, precioUnitario);
 }
 
-// ========== VALIDACIÓN DE INE CON OCR Y MENSAJE DE ESCANEO (COMPLETA) ==========
+// ========== VALIDACIÓN DE INE CON OCR Y MENSAJE DE ESCANEO ==========
 function mostrarModalValidacionINE(callback) {
   const modal = document.createElement('div');
   modal.id = 'ineModal';

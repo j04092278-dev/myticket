@@ -1,13 +1,13 @@
 const express = require('express');
-const { crearSesionPago, webhook } = require('../controllers/pagoController');
+const { crearPreferenciaPago, webhook } = require('../controllers/pagoController');
 const { authMiddleware } = require('../middleware/auth');
 
 const router = express.Router();
 
 // Ruta para iniciar pago (frontend)
-router.post('/crear-sesion', authMiddleware, crearSesionPago);
+router.post('/crear-preferencia', authMiddleware, crearPreferenciaPago);
 
-// Webhook de Stripe (sin autenticación, porque Stripe lo llama)
-router.post('/webhook', express.raw({ type: 'application/json' }), webhook);
+// Webhook de Mercado Pago (sin autenticación)
+router.post('/webhook', express.json(), webhook);
 
 module.exports = router;
