@@ -3,20 +3,18 @@ const crypto = require('crypto');
 const QRCode = require('qrcode');
 const pdf = require('html-pdf');
 const { encrypt } = require('../utils/encrypt');
-const fs = require('fs');
-const path = require('path');
 
-// ===== GENERAR HTML DEL BOLETO (REUTILIZABLE PARA PDF) =====
+// ===== GENERAR HTML DEL BOLETO (CON QR ESCANEABLE) =====
 const generarBoletoHTML = async (data) => {
   const { codigo, evento, nombre_usuario, fecha, ubicacion, zona, asiento, precio, imagen_url } = data;
 
-  // ===== CONTENIDO DEL QR: JSON COMPACTO Y LEGIBLE =====
+  // Contenido del QR: JSON compacto
   const qrContent = JSON.stringify({
-    c: codigo,           // código
-    e: evento,           // evento
-    u: nombre_usuario,   // usuario
-    f: fecha,            // fecha
-    l: ubicacion,        // ubicación
+    c: codigo,
+    e: evento,
+    u: nombre_usuario,
+    f: fecha,
+    l: ubicacion,
     z: zona || 'General',
     a: asiento || 'Libre',
     p: precio
@@ -28,10 +26,7 @@ const generarBoletoHTML = async (data) => {
       errorCorrectionLevel: 'H',
       margin: 2,
       width: 160,
-      color: {
-        dark: '#000000',
-        light: '#FFFFFF'
-      }
+      color: { dark: '#000000', light: '#FFFFFF' }
     });
     console.log('✅ QR generado correctamente');
   } catch (err) {
@@ -39,7 +34,6 @@ const generarBoletoHTML = async (data) => {
     qrBase64 = '';
   }
 
-  // Colores de la temática espacial
   const colors = {
     primary: '#ff0000',
     secondary: '#cc0000',
@@ -50,7 +44,6 @@ const generarBoletoHTML = async (data) => {
     textSecondary: '#9CA3AF',
   };
 
-  // Fondo con imagen o degradado
   let fondoStyle = `background: linear-gradient(145deg, ${colors.dark}, ${colors.bg});`;
   let overlay = '';
   if (imagen_url) {
@@ -58,7 +51,6 @@ const generarBoletoHTML = async (data) => {
     overlay = `<div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10,10,10,0.7); z-index: 0; border-radius: 16px;"></div>`;
   }
 
-  // ===== HTML DEL BOLETO =====
   return `
     <!DOCTYPE html>
     <html lang="es">
@@ -69,110 +61,37 @@ const generarBoletoHTML = async (data) => {
       <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
-          display: flex; 
-          justify-content: center; 
-          align-items: center; 
-          min-height: 100vh; 
-          background: #0A0A0A; 
-          font-family: 'Poppins', sans-serif; 
-          padding: 20px; 
-          margin: 0;
-        }
+        body { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #0A0A0A; font-family: 'Poppins', sans-serif; padding: 20px; }
         .boleto-container {
-          width: 100%;
-          max-width: 420px;
-          position: relative;
-          overflow: hidden;
-          border-radius: 16px;
-          border: 2px solid ${colors.primary};
+          width: 100%; max-width: 420px;
+          position: relative; overflow: hidden;
+          border-radius: 16px; border: 2px solid ${colors.primary};
           box-shadow: 0 0 40px rgba(255,0,0,0.3);
-          color: ${colors.text};
-          padding: 24px;
-          min-height: 480px;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
+          color: ${colors.text}; padding: 24px;
+          min-height: 480px; display: flex; flex-direction: column; justify-content: center;
           ${fondoStyle}
         }
         .boleto-container .overlay {
-          position: absolute;
-          top: 0; left: 0; width: 100%; height: 100%;
-          background: rgba(10,10,10,0.7);
-          z-index: 0;
-          border-radius: 16px;
+          position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+          background: rgba(10,10,10,0.7); z-index: 0; border-radius: 16px;
         }
-        .boleto-content {
-          position: relative;
-          z-index: 1;
-        }
-        .boleto-header {
-          text-align: center;
-          margin-bottom: 15px;
-        }
-        .boleto-header h2 {
-          color: ${colors.light};
-          font-size: 1.8rem;
-          font-family: 'Orbitron', sans-serif;
-          margin: 0;
-        }
-        .boleto-divider {
-          border-bottom: 2px dashed ${colors.primary};
-          margin: 10px 0;
-        }
-        .boleto-info p {
-          margin: 5px 0;
-          color: ${colors.text};
-          font-size: 0.95rem;
-        }
-        .boleto-info strong {
-          color: ${colors.light};
-        }
-        .boleto-qr {
-          text-align: center;
-          margin: 15px 0;
-        }
-        .boleto-qr img {
-          width: 160px;
-          height: 160px;
-          border: 3px solid ${colors.primary};
-          border-radius: 12px;
-          padding: 4px;
-          background: white;
-        }
-        .boleto-qr .qr-fallback {
-          display: inline-block;
-          padding: 10px;
-          background: #1a1a1a;
-          border-radius: 8px;
-          color: #fff;
-          font-family: monospace;
-          font-size: 12px;
-          word-break: break-all;
-        }
-        .boleto-footer {
-          text-align: center;
-          margin-top: 5px;
-        }
-        .boleto-footer p {
-          font-size: 0.8rem;
-          color: ${colors.textSecondary};
-          letter-spacing: 1px;
-          margin: 2px 0;
-        }
-        .boleto-footer small {
-          font-size: 0.7rem;
-          color: ${colors.textSecondary};
-        }
-        @media print {
-          body { background: white; padding: 0; }
-          .boleto-container { box-shadow: none; border-color: #333; }
-        }
+        .boleto-content { position: relative; z-index: 1; }
+        .boleto-header { text-align: center; margin-bottom: 15px; }
+        .boleto-header h2 { color: ${colors.light}; font-size: 1.8rem; font-family: 'Orbitron', sans-serif; margin: 0; }
+        .boleto-divider { border-bottom: 2px dashed ${colors.primary}; margin: 10px 0; }
+        .boleto-info p { margin: 5px 0; color: ${colors.text}; font-size: 0.95rem; }
+        .boleto-info strong { color: ${colors.light}; }
+        .boleto-qr { text-align: center; margin: 15px 0; }
+        .boleto-qr img { width: 160px; height: 160px; border: 3px solid ${colors.primary}; border-radius: 12px; padding: 4px; background: white; }
+        .boleto-footer { text-align: center; margin-top: 5px; }
+        .boleto-footer p { font-size: 0.8rem; color: ${colors.textSecondary}; letter-spacing: 1px; margin: 2px 0; }
+        .boleto-footer small { font-size: 0.7rem; color: ${colors.textSecondary}; }
+        @media print { body { background: white; padding: 0; } .boleto-container { box-shadow: none; border-color: #333; } }
       </style>
     </head>
     <body>
       <div class="boleto-container">
-        ${imagen_url ? '<div class="overlay"></div>' : ''}
+        ${overlay}
         <div class="boleto-content">
           <div class="boleto-header">
             <h2>🚀 MyTicket</h2>
@@ -187,10 +106,7 @@ const generarBoletoHTML = async (data) => {
             <p><strong>Precio pagado:</strong> $${precio}</p>
           </div>
           <div class="boleto-qr">
-            ${qrBase64 
-              ? `<img src="${qrBase64}" alt="QR Code" />` 
-              : `<div class="qr-fallback">Código: ${codigo}</div>`
-            }
+            ${qrBase64 ? `<img src="${qrBase64}" alt="QR Code" />` : `<div style="width:160px;height:160px;background:rgba(255,255,255,0.1);border-radius:12px;display:flex;align-items:center;justify-content:center;color:#666;margin:0 auto;">QR</div>`}
           </div>
           <div class="boleto-footer">
             <p>Código: ${codigo}</p>
@@ -204,7 +120,7 @@ const generarBoletoHTML = async (data) => {
   `;
 };
 
-// ===== GENERAR PDF A PARTIR DE HTML =====
+// ===== GENERAR PDF =====
 const generarPDF = (html) => {
   return new Promise((resolve, reject) => {
     pdf.create(html, {
@@ -252,7 +168,6 @@ const comprarBoletos = async (req, res) => {
     const userData = await client.query('SELECT nombre FROM cliente WHERE id_cliente = $1', [req.userId]);
     const nombre_usuario = userData.rows[0].nombre;
 
-    // Generar HTML (con QR)
     const imagen_url = eventoData.imagen_url || null;
     const boletoHTML = await generarBoletoHTML({
       codigo: codigoUnico,
@@ -375,7 +290,7 @@ const descargarBoleto = async (req, res) => {
       res.send(pdfBuffer);
     } catch (pdfError) {
       console.error('❌ Error generando PDF:', pdfError);
-      // Fallback: enviar HTML
+      // Fallback a HTML
       res.setHeader('Content-Type', 'text/html');
       res.setHeader('Content-Disposition', `attachment; filename="boleto_${boleto.codigo_unico}.html"`);
       res.send(html);
