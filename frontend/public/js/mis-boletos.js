@@ -16,10 +16,7 @@ async function loadUser() {
       if (logoutBtn) logoutBtn.style.display = 'inline-block';
       console.log('✅ Usuario autenticado en Mis Boletos:', currentUser.email);
 
-      // ===== PRIMERO: VERIFICAR SI VIENE DE UN PAGO EXITOSO =====
       await verificarPagoExitoso();
-
-      // ===== SEGUNDO: CARGAR BOLETOS =====
       cargarBoletos();
     } else {
       console.log('⚠️ Usuario no autenticado en Mis Boletos, redirigiendo a login');
@@ -37,20 +34,14 @@ document.getElementById('logoutBtn').onclick = async () => {
   window.location.href = '/';
 };
 
-// ===== VERIFICAR Y GUARDAR BOLETO DESPUÉS DE PAGO EXITOSO =====
 async function verificarPagoExitoso() {
   const urlParams = new URLSearchParams(window.location.search);
   const sessionId = urlParams.get('session_id');
 
-  if (!sessionId) {
-    console.log('ℹ️ No hay session_id en la URL, no hay pago pendiente.');
-    return;
-  }
+  if (!sessionId) return;
 
   console.log('🔍 Session ID encontrado:', sessionId);
-
-  // Mostrar mensaje de procesando
-  showToast('⏳ Procesando tu pago, por favor espera...', 'info', 10000);
+  showToast('⏳ Procesando tu pago...', 'info', 10000);
 
   try {
     const res = await fetch('/api/pagos/confirmar', {
@@ -62,17 +53,15 @@ async function verificarPagoExitoso() {
     const data = await res.json();
 
     if (res.ok && data.success) {
-      showToast('✅ ¡Pago confirmado! Tu boleto ha sido guardado.', 'success');
-      // Limpiar la URL para evitar recargas accidentales
+      showToast('✅ ¡Pago confirmado! Boleto guardado.', 'success');
       window.history.replaceState({}, document.title, '/mis-boletos');
-      // Recargar boletos (se llamará a cargarBoletos después)
     } else {
-      showToast('❌ Error al confirmar el pago: ' + (data.error || 'Error desconocido'), 'error');
+      showToast('❌ Error al confirmar pago: ' + (data.error || 'Error desconocido'), 'error');
       window.history.replaceState({}, document.title, '/mis-boletos');
     }
   } catch (err) {
     console.error('❌ Error al confirmar pago:', err);
-    showToast('❌ Error de conexión al confirmar el pago', 'error');
+    showToast('❌ Error de conexión', 'error');
     window.history.replaceState({}, document.title, '/mis-boletos');
   }
 }
@@ -111,8 +100,9 @@ async function cargarBoletos() {
                 <p style="font-size:0.9rem; color:var(--text-muted);">Código: <span class="boleto-codigo" style="color:var(--red-main); font-family:monospace;">${b.codigo_unico}</span></p>
               </div>
               <div style="text-align:center;">
-                ${b.qr_codigo ? `<img src="${b.qr_codigo}" alt="QR" style="width:100px; height:100px; border:2px solid var(--red-main); border-radius:0.8rem; padding:0.2rem; background:white;">` : ''}
-                <div style="font-size:0.7rem; color:var(--text-muted); margin-top:4px;">Escanea para acceder</div>
+                <button onclick="descargarBoleto(${b.id_boleto})" style="margin-top:0.5rem; padding:0.5rem 1.5rem; background:linear-gradient(135deg, #00ff88, #00cc66); color:#0a0f2a; border:none; border-radius:50px; font-weight:bold; cursor:pointer; font-size:0.9rem;">
+                  ⬇️ Descargar Boleto
+                </button>
               </div>
             </div>
             <div style="margin-top:0.8rem; padding-top:0.8rem; border-top:1px dashed var(--red-main); text-align:center; font-size:0.7rem; color:var(--text-muted);">
@@ -132,6 +122,33 @@ async function cargarBoletos() {
       showToast('Error al cargar tus boletos', 'error');
       container.innerHTML = `<p style="text-align:center; color:var(--red-light);">❌ Error: ${err.message}</p>`;
     }
+  }
+}
+
+async function descargarBoleto(idBoleto) {
+  try {
+    const res = await fetch(`/api/boletos/${idBoleto}/descargar`, {
+      credentials: 'include'
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      showToast('❌ Error al descargar: ' + (data.error || 'Error desconocido'), 'error');
+      return;
+    }
+    const html = await res.text();
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `boleto_${idBoleto}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('✅ Boleto descargado correctamente', 'success');
+  } catch (err) {
+    console.error('❌ Error en descarga:', err);
+    showToast('❌ Error al descargar el boleto', 'error');
   }
 }
 
