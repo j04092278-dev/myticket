@@ -134,12 +134,12 @@ async function descargarBoleto(idBoleto) {
       showToast('❌ Error al descargar: ' + (data.error || 'Error desconocido'), 'error');
       return;
     }
-    // Obtener el contenido (será PDF o HTML si falla)
+    // Obtener el contenido (será PDF)
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    // Extraer nombre del archivo desde el header Content-Disposition
+    // Intentar obtener el nombre del archivo de los headers
     const disposition = res.headers.get('content-disposition');
     let filename = `boleto_${idBoleto}.pdf`;
     if (disposition && disposition.indexOf('filename=') !== -1) {
