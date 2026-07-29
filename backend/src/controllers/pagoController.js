@@ -45,7 +45,11 @@ const crearSesionPago = async (req, res) => {
       }
     }
 
-    // 5. Crear sesión de Checkout
+    // 5. Obtener la URL base desde variables de entorno
+    const baseUrl = process.env.FRONTEND_URL || 'https://myticket.onrender.com';
+    console.log(`🌐 URL base para redirección: ${baseUrl}`);
+
+    // 6. Crear sesión de Checkout
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [{
@@ -61,8 +65,8 @@ const crearSesionPago = async (req, res) => {
         quantity: 1,
       }],
       mode: 'payment',
-      success_url: `${process.env.FRONTEND_URL || 'https://myticket.onrender.com'}/mis-boletos?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.FRONTEND_URL || 'https://myticket.onrender.com'}/eventos`,
+      success_url: `${baseUrl}/mis-boletos?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${baseUrl}/eventos`,
       client_reference_id: JSON.stringify({
         userId: req.userId,
         eventoId: eventoId,
@@ -80,6 +84,7 @@ const crearSesionPago = async (req, res) => {
     });
 
     console.log('✅ Sesión de Stripe creada:', session.id);
+    console.log(`🔗 URL de éxito: ${baseUrl}/mis-boletos?session_id=${session.id}`);
     res.json({ url: session.url });
   } catch (error) {
     console.error('❌ Error al crear sesión de pago:', error);
@@ -103,31 +108,24 @@ const webhook = async (req, res) => {
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  // Manejar el evento de pago exitoso
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object;
     const clientReference = JSON.parse(session.client_reference_id);
-
     const { userId, eventoId, cantidad, zona, asiento, tipoPrecio, precioUnitario } = clientReference;
 
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
 
-      // Verificar disponibilidad nuevamente
       const evento = await client.query('SELECT * FROM evento WHERE id_evento = $1 FOR UPDATE', [eventoId]);
       if (evento.rows.length === 0) throw new Error('Evento no existe');
       const eventoData = evento.rows[0];
       if (eventoData.boletos_disponibles < cantidad) throw new Error('Boletos insuficientes');
 
-      // Generar código único
       const codigoUnico = crypto.randomBytes(8).toString('hex').toUpperCase();
-
-      // Obtener nombre del usuario
       const userData = await client.query('SELECT nombre FROM cliente WHERE id_cliente = $1', [userId]);
       const nombre_usuario = userData.rows[0].nombre;
 
-      // Generar HTML del boleto
       const imagen_url = eventoData.imagen_url || null;
       const boletoHTML = await generarBoletoHTML({
         codigo: codigoUnico,
@@ -141,7 +139,6 @@ const webhook = async (req, res) => {
         imagen_url: imagen_url
       });
 
-      // Insertar boleto
       const boleto = await client.query(
         `INSERT INTO boletos (id_evento, id_cliente, zona, asiento, codigo_unico, estatus, tipo_precio, boleto_html)
          VALUES ($1,$2,$3,$4,$5,'activo',$6,$7) RETURNING id_boleto`,
@@ -149,10 +146,8 @@ const webhook = async (req, res) => {
       );
       const boletoId = boleto.rows[0].id_boleto;
 
-      // Actualizar disponibilidad
       await client.query('UPDATE evento SET boletos_disponibles = boletos_disponibles - $1 WHERE id_evento = $2', [cantidad, eventoId]);
 
-      // Registrar venta
       const referencia = `REF${codigoUnico.slice(0,6)}`;
       await client.query(
         `INSERT INTO venta (id_cliente, id_evento, id_boleto, fecha_venta, hora_venta, precio_pagado, referencia_boleto)
@@ -160,7 +155,6 @@ const webhook = async (req, res) => {
         [userId, eventoId, boletoId, precioUnitario * cantidad, referencia]
       );
 
-      // Registrar transacción
       await client.query(
         `INSERT INTO transacciones (id_cliente, id_boleto, fecha_transaccion, monto, estado)
          VALUES ($1,$2,CURRENT_DATE,$3,'completado')`,
