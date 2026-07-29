@@ -47,6 +47,18 @@ const getEstadoINE = async (req, res) => {
   }
 };
 
+// ===== FUNCIÓN PARA LIMPIAR NOMBRE =====
+const limpiarNombre = (nombre) => {
+  if (!nombre) return '';
+  return nombre
+    .replace(/\n/g, ' ')
+    .replace(/\r/g, ' ')
+    .replace(/\|/g, ' ')
+    .replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
 const validarINEConImagen = async (req, res) => {
   const { numero_ine, curp, nombre_completo, fecha_nacimiento, sexo, entidad_emision } = req.body;
   try {
@@ -172,12 +184,21 @@ const validarINEConImagen = async (req, res) => {
       });
     }
 
-    // Guardar en BD
-    const curpFinal = datosExtraidos?.curpEncontrado || curp;
-    const nombreFinal = datosExtraidos?.nombreEncontrado || nombre_completo;
-    const fechaFinal = datosExtraidos?.fechaEncontrada || fecha_nacimiento;
-    const sexoFinal = datosExtraidos?.sexoEncontrado || sexo || '';
+    // ===== LIMPIAR Y TRUNCAR NOMBRE =====
+    let curpFinal = datosExtraidos?.curpEncontrado || curp;
+    let nombreFinal = limpiarNombre(datosExtraidos?.nombreEncontrado || nombre_completo);
+    let fechaFinal = datosExtraidos?.fechaEncontrada || fecha_nacimiento;
+    let sexoFinal = datosExtraidos?.sexoEncontrado || sexo || '';
 
+    // Truncar nombre a 200 caracteres (seguro)
+    if (nombreFinal && nombreFinal.length > 200) {
+      nombreFinal = nombreFinal.substring(0, 200);
+      console.log(`⚠️ Nombre truncado a 200 caracteres`);
+    }
+
+    console.log('📝 Datos a guardar:', { curpFinal, nombreFinal, fechaFinal, sexoFinal });
+
+    // Guardar en BD
     const result = await pool.query(
       `INSERT INTO ine_validacion
        (id_cliente, numero_ine, curp, nombre_completo, fecha_nacimiento, sexo, 
