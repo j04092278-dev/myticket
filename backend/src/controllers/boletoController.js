@@ -1,42 +1,35 @@
 const pool = require('../config/database');
 const crypto = require('crypto');
 const QRCode = require('qrcode');
+const pdf = require('html-pdf');
 const { encrypt } = require('../utils/encrypt');
+const fs = require('fs');
+const path = require('path');
 
-// ===== GENERAR HTML DEL BOLETO CON QR =====
+// ===== GENERAR HTML DEL BOLETO (REUTILIZABLE PARA PDF) =====
 const generarBoletoHTML = async (data) => {
   const { codigo, evento, nombre_usuario, fecha, ubicacion, zona, asiento, precio, imagen_url } = data;
 
-  // Generar QR como imagen base64 (con alta corrección de errores)
+  // Generar QR con JSON de datos (escaneable)
+  const qrData = JSON.stringify({
+    codigo,
+    evento,
+    usuario: nombre_usuario,
+    fecha,
+    ubicacion,
+    zona: zona || 'General',
+    asiento: asiento || 'Libre',
+    precio
+  });
   let qrBase64 = '';
   try {
-    // Crear un objeto con los datos del boleto para el QR
-    const qrData = JSON.stringify({
-      codigo: codigo,
-      evento: evento,
-      usuario: nombre_usuario,
-      fecha: fecha,
-      zona: zona,
-      asiento: asiento,
-      // Incluir URL para verificación (opcional)
-      url: process.env.FRONTEND_URL || 'https://myticket.onrender.com'
-    });
-    
-    qrBase64 = await QRCode.toDataURL(qrData, {
-      errorCorrectionLevel: 'H', // Alta corrección de errores
-      width: 300,
-      margin: 2,
-      color: {
-        dark: '#000000',
-        light: '#ffffff'
-      }
-    });
-    console.log('✅ QR generado correctamente');
+    qrBase64 = await QRCode.toDataURL(qrData, { errorCorrectionLevel: 'H' });
   } catch (err) {
     console.error('❌ Error generando QR:', err);
     qrBase64 = '';
   }
 
+  // Colores
   const colors = {
     primary: '#ff0000',
     secondary: '#cc0000',
@@ -47,6 +40,7 @@ const generarBoletoHTML = async (data) => {
     textSecondary: '#9CA3AF',
   };
 
+  // Fondo con imagen o degradado
   let fondoStyle = `background: linear-gradient(145deg, ${colors.dark}, ${colors.bg});`;
   let overlay = '';
   if (imagen_url) {
@@ -54,12 +48,7 @@ const generarBoletoHTML = async (data) => {
     overlay = `<div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10,10,10,0.7); z-index: 0; border-radius: 16px;"></div>`;
   }
 
-  const fechaFormateada = new Date(fecha).toLocaleDateString('es-MX', { 
-    day: '2-digit', 
-    month: '2-digit', 
-    year: 'numeric' 
-  });
-
+  // Construir HTML del boleto (con soporte para PDF)
   return `
     <!DOCTYPE html>
     <html lang="es">
@@ -78,6 +67,7 @@ const generarBoletoHTML = async (data) => {
           background: #0A0A0A; 
           font-family: 'Poppins', sans-serif; 
           padding: 20px; 
+          margin: 0;
         }
         .boleto-container {
           width: 100%;
@@ -123,6 +113,7 @@ const generarBoletoHTML = async (data) => {
         .boleto-info p {
           margin: 5px 0;
           color: ${colors.text};
+          font-size: 0.95rem;
         }
         .boleto-info strong {
           color: ${colors.light};
@@ -132,8 +123,8 @@ const generarBoletoHTML = async (data) => {
           margin: 15px 0;
         }
         .boleto-qr img {
-          width: 160px;
-          height: 160px;
+          width: 140px;
+          height: 140px;
           border: 3px solid ${colors.primary};
           border-radius: 12px;
           padding: 4px;
@@ -147,6 +138,7 @@ const generarBoletoHTML = async (data) => {
           font-size: 0.8rem;
           color: ${colors.textSecondary};
           letter-spacing: 1px;
+          margin: 2px 0;
         }
         .boleto-footer small {
           font-size: 0.7rem;
@@ -160,7 +152,7 @@ const generarBoletoHTML = async (data) => {
     </head>
     <body>
       <div class="boleto-container">
-        ${overlay}
+        ${imagen_url ? '<div class="overlay"></div>' : ''}
         <div class="boleto-content">
           <div class="boleto-header">
             <h2>🚀 MyTicket</h2>
@@ -168,14 +160,14 @@ const generarBoletoHTML = async (data) => {
           </div>
           <div class="boleto-info">
             <p><strong>Evento:</strong> ${evento}</p>
-            <p><strong>Fecha:</strong> ${fechaFormateada}</p>
+            <p><strong>Fecha:</strong> ${new Date(fecha).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}</p>
             <p><strong>Ubicación:</strong> ${ubicacion}</p>
             <p><strong>Zona:</strong> ${zona || 'General'} | <strong>Asiento:</strong> ${asiento || 'Libre'}</p>
             <p><strong>Comprador:</strong> ${nombre_usuario}</p>
             <p><strong>Precio pagado:</strong> $${precio}</p>
           </div>
           <div class="boleto-qr">
-            ${qrBase64 ? `<img src="${qrBase64}" alt="QR Code" />` : '<div style="width:160px;height:160px;background:rgba(255,255,255,0.1);border-radius:12px;display:flex;align-items:center;justify-content:center;color:#666;margin:0 auto;">QR no disponible</div>'}
+            ${qrBase64 ? `<img src="${qrBase64}" alt="QR Code" />` : '<div style="width:140px;height:140px;background:rgba(255,255,255,0.1);border-radius:12px;display:flex;align-items:center;justify-content:center;color:#666;margin:0 auto;">QR</div>'}
           </div>
           <div class="boleto-footer">
             <p>Código: ${codigo}</p>
@@ -186,6 +178,22 @@ const generarBoletoHTML = async (data) => {
     </body>
     </html>
   `;
+};
+
+// ===== GENERAR PDF A PARTIR DE HTML =====
+const generarPDF = (html) => {
+  return new Promise((resolve, reject) => {
+    pdf.create(html, {
+      width: '420px',
+      height: '600px',
+      phantomPath: require('phantomjs-prebuilt').path, // asegura que phantomjs esté disponible
+      orientation: 'portrait',
+      border: '0',
+    }).toBuffer((err, buffer) => {
+      if (err) return reject(err);
+      resolve(buffer);
+    });
+  });
 };
 
 // ===== COMPRAR BOLETOS =====
@@ -219,6 +227,7 @@ const comprarBoletos = async (req, res) => {
     const userData = await client.query('SELECT nombre FROM cliente WHERE id_cliente = $1', [req.userId]);
     const nombre_usuario = userData.rows[0].nombre;
 
+    // Generar HTML y PDF
     const imagen_url = eventoData.imagen_url || null;
     const boletoHTML = await generarBoletoHTML({
       codigo: codigoUnico,
@@ -232,6 +241,7 @@ const comprarBoletos = async (req, res) => {
       imagen_url: imagen_url
     });
 
+    // Guardar solo el HTML en BD (el PDF se generará bajo demanda)
     const boleto = await client.query(
       `INSERT INTO boletos (id_evento, id_cliente, zona, asiento, codigo_unico, estatus, tipo_precio, boleto_html)
        VALUES ($1,$2,$3,$4,$5,'activo',$6,$7) RETURNING id_boleto`,
@@ -320,7 +330,7 @@ const getMisBoletos = async (req, res) => {
   }
 };
 
-// ===== DESCARGAR BOLETO =====
+// ===== DESCARGAR BOLETO EN PDF =====
 const descargarBoleto = async (req, res) => {
   const { id } = req.params;
   try {
@@ -332,9 +342,21 @@ const descargarBoleto = async (req, res) => {
       return res.status(404).json({ error: 'Boleto no encontrado' });
     }
     const boleto = result.rows[0];
-    res.setHeader('Content-Type', 'text/html');
-    res.setHeader('Content-Disposition', `attachment; filename="boleto_${boleto.codigo_unico}.html"`);
-    res.send(boleto.boleto_html);
+    const html = boleto.boleto_html;
+
+    // Generar PDF desde el HTML
+    try {
+      const pdfBuffer = await generarPDF(html);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="boleto_${boleto.codigo_unico}.pdf"`);
+      res.send(pdfBuffer);
+    } catch (pdfError) {
+      console.error('❌ Error generando PDF:', pdfError);
+      // Fallback: enviar HTML si falla la generación de PDF
+      res.setHeader('Content-Type', 'text/html');
+      res.setHeader('Content-Disposition', `attachment; filename="boleto_${boleto.codigo_unico}.html"`);
+      res.send(html);
+    }
   } catch (error) {
     console.error('❌ Error al descargar boleto:', error);
     res.status(500).json({ error: 'Error al descargar boleto' });

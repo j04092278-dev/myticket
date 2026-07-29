@@ -37,7 +37,6 @@ document.getElementById('logoutBtn').onclick = async () => {
 async function verificarPagoExitoso() {
   const urlParams = new URLSearchParams(window.location.search);
   const sessionId = urlParams.get('session_id');
-
   if (!sessionId) return;
 
   console.log('🔍 Session ID encontrado:', sessionId);
@@ -101,7 +100,7 @@ async function cargarBoletos() {
               </div>
               <div style="text-align:center;">
                 <button onclick="descargarBoleto(${b.id_boleto})" style="margin-top:0.5rem; padding:0.5rem 1.5rem; background:linear-gradient(135deg, #00ff88, #00cc66); color:#0a0f2a; border:none; border-radius:50px; font-weight:bold; cursor:pointer; font-size:0.9rem;">
-                  ⬇️ Descargar Boleto
+                  ⬇️ Descargar Boleto (PDF)
                 </button>
               </div>
             </div>
@@ -135,12 +134,18 @@ async function descargarBoleto(idBoleto) {
       showToast('❌ Error al descargar: ' + (data.error || 'Error desconocido'), 'error');
       return;
     }
-    const html = await res.text();
-    const blob = new Blob([html], { type: 'text/html' });
+    // Obtener el contenido (será PDF o HTML si falla)
+    const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `boleto_${idBoleto}.html`;
+    // Extraer nombre del archivo desde el header Content-Disposition
+    const disposition = res.headers.get('content-disposition');
+    let filename = `boleto_${idBoleto}.pdf`;
+    if (disposition && disposition.indexOf('filename=') !== -1) {
+      filename = disposition.split('filename=')[1].replace(/["']/g, '');
+    }
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
