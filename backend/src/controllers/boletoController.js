@@ -7,23 +7,36 @@ const { encrypt } = require('../utils/encrypt');
 const generarBoletoHTML = async (data) => {
   const { codigo, evento, nombre_usuario, fecha, ubicacion, zona, asiento, precio, imagen_url } = data;
 
-  // Generar QR como imagen base64
+  // Generar QR como imagen base64 (con alta corrección de errores)
   let qrBase64 = '';
   try {
-    qrBase64 = await QRCode.toDataURL(JSON.stringify({
+    // Crear un objeto con los datos del boleto para el QR
+    const qrData = JSON.stringify({
       codigo: codigo,
       evento: evento,
       usuario: nombre_usuario,
       fecha: fecha,
       zona: zona,
-      asiento: asiento
-    }), { errorCorrectionLevel: 'H' });
+      asiento: asiento,
+      // Incluir URL para verificación (opcional)
+      url: process.env.FRONTEND_URL || 'https://myticket.onrender.com'
+    });
+    
+    qrBase64 = await QRCode.toDataURL(qrData, {
+      errorCorrectionLevel: 'H', // Alta corrección de errores
+      width: 300,
+      margin: 2,
+      color: {
+        dark: '#000000',
+        light: '#ffffff'
+      }
+    });
+    console.log('✅ QR generado correctamente');
   } catch (err) {
     console.error('❌ Error generando QR:', err);
     qrBase64 = '';
   }
 
-  // Colores de la temática espacial
   const colors = {
     primary: '#ff0000',
     secondary: '#cc0000',
@@ -34,7 +47,6 @@ const generarBoletoHTML = async (data) => {
     textSecondary: '#9CA3AF',
   };
 
-  // Fondo con imagen del evento o degradado
   let fondoStyle = `background: linear-gradient(145deg, ${colors.dark}, ${colors.bg});`;
   let overlay = '';
   if (imagen_url) {
@@ -42,7 +54,12 @@ const generarBoletoHTML = async (data) => {
     overlay = `<div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10,10,10,0.7); z-index: 0; border-radius: 16px;"></div>`;
   }
 
-  // Construir HTML del boleto
+  const fechaFormateada = new Date(fecha).toLocaleDateString('es-MX', { 
+    day: '2-digit', 
+    month: '2-digit', 
+    year: 'numeric' 
+  });
+
   return `
     <!DOCTYPE html>
     <html lang="es">
@@ -53,7 +70,15 @@ const generarBoletoHTML = async (data) => {
       <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #0A0A0A; font-family: 'Poppins', sans-serif; padding: 20px; }
+        body { 
+          display: flex; 
+          justify-content: center; 
+          align-items: center; 
+          min-height: 100vh; 
+          background: #0A0A0A; 
+          font-family: 'Poppins', sans-serif; 
+          padding: 20px; 
+        }
         .boleto-container {
           width: 100%;
           max-width: 420px;
@@ -107,8 +132,8 @@ const generarBoletoHTML = async (data) => {
           margin: 15px 0;
         }
         .boleto-qr img {
-          width: 140px;
-          height: 140px;
+          width: 160px;
+          height: 160px;
           border: 3px solid ${colors.primary};
           border-radius: 12px;
           padding: 4px;
@@ -135,7 +160,7 @@ const generarBoletoHTML = async (data) => {
     </head>
     <body>
       <div class="boleto-container">
-        ${imagen_url ? '<div class="overlay"></div>' : ''}
+        ${overlay}
         <div class="boleto-content">
           <div class="boleto-header">
             <h2>🚀 MyTicket</h2>
@@ -143,14 +168,14 @@ const generarBoletoHTML = async (data) => {
           </div>
           <div class="boleto-info">
             <p><strong>Evento:</strong> ${evento}</p>
-            <p><strong>Fecha:</strong> ${new Date(fecha).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}</p>
+            <p><strong>Fecha:</strong> ${fechaFormateada}</p>
             <p><strong>Ubicación:</strong> ${ubicacion}</p>
             <p><strong>Zona:</strong> ${zona || 'General'} | <strong>Asiento:</strong> ${asiento || 'Libre'}</p>
             <p><strong>Comprador:</strong> ${nombre_usuario}</p>
             <p><strong>Precio pagado:</strong> $${precio}</p>
           </div>
           <div class="boleto-qr">
-            ${qrBase64 ? `<img src="${qrBase64}" alt="QR Code" />` : '<div style="width:140px;height:140px;background:rgba(255,255,255,0.1);border-radius:12px;display:flex;align-items:center;justify-content:center;color:#666;margin:0 auto;">QR</div>'}
+            ${qrBase64 ? `<img src="${qrBase64}" alt="QR Code" />` : '<div style="width:160px;height:160px;background:rgba(255,255,255,0.1);border-radius:12px;display:flex;align-items:center;justify-content:center;color:#666;margin:0 auto;">QR no disponible</div>'}
           </div>
           <div class="boleto-footer">
             <p>Código: ${codigo}</p>
@@ -194,7 +219,6 @@ const comprarBoletos = async (req, res) => {
     const userData = await client.query('SELECT nombre FROM cliente WHERE id_cliente = $1', [req.userId]);
     const nombre_usuario = userData.rows[0].nombre;
 
-    // Generar HTML del boleto
     const imagen_url = eventoData.imagen_url || null;
     const boletoHTML = await generarBoletoHTML({
       codigo: codigoUnico,
@@ -208,7 +232,6 @@ const comprarBoletos = async (req, res) => {
       imagen_url: imagen_url
     });
 
-    // Insertar boleto en BD (con el HTML)
     const boleto = await client.query(
       `INSERT INTO boletos (id_evento, id_cliente, zona, asiento, codigo_unico, estatus, tipo_precio, boleto_html)
        VALUES ($1,$2,$3,$4,$5,'activo',$6,$7) RETURNING id_boleto`,
