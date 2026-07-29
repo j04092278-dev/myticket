@@ -1,14 +1,47 @@
 const Tesseract = require('tesseract.js');
-const path = require('path');
 const sharp = require('sharp');
 const fs = require('fs');
+const { RekognitionClient, DetectTextCommand } = require('@aws-sdk/client-rekognition');
 
-// ========== PREPROCESAMIENTO AVANZADO DE IMAGEN ==========
+// Inicializar AWS Rekognition para OCR
+let rekognitionClient = null;
+if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY && process.env.AWS_REGION) {
+  rekognitionClient = new RekognitionClient({
+    region: process.env.AWS_REGION || 'us-east-1',
+    credentials: {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    },
+  });
+  console.log('✅ AWS Rekognition inicializado para OCR');
+} else {
+  console.log('⚠️ AWS Rekognition no configurado, usando Tesseract.js');
+}
+
+// ========== OCR CON AWS ==========
+async function ocrConAWS(imagenPath) {
+  if (!rekognitionClient) return null;
+  try {
+    const imageBytes = fs.readFileSync(imagenPath);
+    const command = new DetectTextCommand({ Image: { Bytes: imageBytes } });
+    const response = await rekognitionClient.send(command);
+    if (!response.TextDetections || response.TextDetections.length === 0) return null;
+    const texto = response.TextDetections
+      .filter(item => item.Type === 'LINE' || item.Type === 'WORD')
+      .map(item => item.DetectedText)
+      .join('\n');
+    console.log('✅ AWS Rekognition OCR exitoso');
+    return texto;
+  } catch (error) {
+    console.error('❌ Error en AWS Rekognition:', error);
+    return null;
+  }
+}
+
+// ========== PREPROCESAR PARA TESSERACT ==========
 async function preprocesarImagen(imagenPath) {
   try {
     const outputPath = imagenPath.replace(/\.(jpe?g|png|webp)$/i, '_processed.jpg');
-    console.log('🔧 Preprocesando imagen para OCR...');
-
     await sharp(imagenPath)
       .resize(1600, 1200, { fit: 'inside', withoutEnlargement: false })
       .grayscale()
@@ -16,227 +49,195 @@ async function preprocesarImagen(imagenPath) {
       .sharpen({ sigma: 2 })
       .modulate({ brightness: 1.2, saturation: 1.2 })
       .toFile(outputPath);
-
-    console.log('✅ Imagen preprocesada:', outputPath);
     return outputPath;
   } catch (err) {
-    console.warn('⚠️ No se pudo preprocesar la imagen, se usará la original:', err.message);
     return imagenPath;
   }
 }
 
-// ========== EJECUTAR OCR CON CONFIGURACIÓN ÓPTIMA ==========
-async function ejecutarOCR(imagenPath, idioma = 'spa') {
+// ========== OCR CON TESSERACT ==========
+async function ocrConTesseract(imagenPath) {
   try {
-    const result = await Tesseract.recognize(imagenPath, idioma, {
+    const imagenProcesada = await preprocesarImagen(imagenPath);
+    const result = await Tesseract.recognize(imagenProcesada, 'spa', {
       logger: (m) => {
         if (m.status === 'recognizing text') {
-          console.log(`📊 Progreso OCR: ${Math.round(m.progress * 100)}%`);
+          console.log(`📊 Progreso Tesseract: ${Math.round(m.progress * 100)}%`);
         }
       },
       tessedit_pageseg_mode: '6',
       tessedit_ocr_engine_mode: '3',
       tessedit_char_whitelist: 'ABCDEFGHIJKLMNÑOPQRSTUVWXYZ0123456789/-.: ',
-      load_system_dawg: '0',
-      load_freq_dawg: '0',
     });
-    return result.data.text;
-  } catch (error) {
-    console.error('❌ Error en OCR:', error);
-    return null;
-  }
-}
-
-// ========== EXTRACCIÓN DE TEXTO (PRINCIPAL) ==========
-async function extraerTextoDeImagen(imagenPath, idioma = 'spa') {
-  try {
-    console.log('📖 Extrayendo texto de la imagen del INE...');
-    console.log('📸 Ruta de la imagen:', imagenPath);
-
-    const imagenProcesada = await preprocesarImagen(imagenPath);
-    let texto = await ejecutarOCR(imagenProcesada, idioma);
-
-    if (!texto || texto.length < 20) {
-      console.log('⚠️ El OCR con preprocesamiento dio poco texto, intentando sin preprocesar...');
-      texto = await ejecutarOCR(imagenPath, idioma);
-    }
-
-    if (texto) {
-      texto = limpiarTextoOCR(texto);
-    }
-
-    console.log('📝 Texto extraído (OCR):');
-    console.log('--- INICIO DEL TEXTO ---');
-    console.log(texto);
-    console.log('--- FIN DEL TEXTO ---');
-
     if (imagenProcesada !== imagenPath && fs.existsSync(imagenProcesada)) {
       fs.unlinkSync(imagenProcesada);
     }
-
-    return texto;
+    return result.data.text;
   } catch (error) {
-    console.error('❌ Error en extraerTextoDeImagen:', error);
+    console.error('❌ Error en Tesseract:', error);
     return null;
   }
 }
 
-// ========== LIMPIEZA DE TEXTO OCR ==========
-function limpiarTextoOCR(texto) {
+// ========== OCR PRINCIPAL ==========
+async function extraerTextoDeImagen(imagenPath) {
+  console.log('📖 Extrayendo texto del INE...');
+  let texto = null;
+
+  // 1. AWS Rekognition
+  if (rekognitionClient) {
+    console.log('🔍 Intentando con AWS Rekognition...');
+    texto = await ocrConAWS(imagenPath);
+    if (texto && texto.length > 30) {
+      console.log('✅ AWS Rekognition exitoso');
+      return limpiarTexto(texto);
+    }
+  }
+
+  // 2. Tesseract
+  console.log('🔍 Intentando con Tesseract.js...');
+  texto = await ocrConTesseract(imagenPath);
+  if (texto && texto.length > 30) {
+    console.log('✅ Tesseract exitoso');
+    return limpiarTexto(texto);
+  }
+
+  // 3. Último intento sin preprocesar
+  console.log('⚠️ Intentando Tesseract sin preprocesar...');
+  texto = await ocrConTesseract(imagenPath);
+  if (texto) return limpiarTexto(texto);
+
+  console.log('❌ Todos los métodos de OCR fallaron');
+  return null;
+}
+
+function limpiarTexto(texto) {
   if (!texto) return '';
-  return texto
-    .replace(/[^A-Za-zÁÉÍÓÚÑ0-9\s\n\/\-:.]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return texto.replace(/[^A-Za-zÁÉÍÓÚÑ0-9\s\n\/\-:.]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-// ========== EXTRACCIÓN DE CURP ==========
-function extraerCURP(texto) {
-  if (!texto) return null;
-  const regexCURP = /CURP\s*[:.]?\s*([A-Z0-9]{18})/i;
-  let match = texto.match(regexCURP);
-  if (match) return match[1].toUpperCase();
+// ========== EXTRACCIÓN INTELIGENTE DE DATOS ==========
+function extraerDatosINE(textoOCR) {
+  if (!textoOCR) return { curp: null, ine: null, fecha: null, sexo: null, nombre: null };
+  const texto = textoOCR;
 
-  const regexPatron = /\b([A-Z]{4}[0-9]{6}[A-Z0-9]{6}[0-9X])\b/;
-  match = texto.match(regexPatron);
-  if (match) return match[1].toUpperCase();
+  // CURP
+  let curp = null;
+  const curpMatch = texto.match(/CURP\s*[:.]?\s*([A-Z0-9]{18})/i);
+  if (curpMatch) curp = curpMatch[1].toUpperCase();
+  if (!curp) {
+    const regex = /\b([A-Z]{4}[0-9]{6}[A-Z0-9]{6}[0-9X])\b/;
+    const match = texto.match(regex);
+    if (match) curp = match[1].toUpperCase();
+  }
 
-  return null;
-}
+  // INE (Clave de Elector)
+  let ine = null;
+  const ineMatch = texto.match(/CLAVE\s*DE\s*ELECTOR\s*[:.]?\s*([A-Z0-9]{18})/i);
+  if (ineMatch) ine = ineMatch[1].toUpperCase();
 
-// ========== EXTRACCIÓN DE NOMBRE ==========
-function extraerNombre(texto) {
-  if (!texto) return null;
+  // Fecha de nacimiento
+  let fecha = null;
+  const fMatch = texto.match(/(?:FECHA\s*DE\s*NACIMIENTO|NACIMIENTO)\s*[:.]?\s*(\d{2})\s*[/-]\s*(\d{2})\s*[/-]\s*(\d{4})/i);
+  if (fMatch) {
+    let dia = fMatch[1].padStart(2, '0');
+    let mes = fMatch[2].padStart(2, '0');
+    let anio = fMatch[3];
+    if (anio.length === 2) anio = '20' + anio;
+    if (parseInt(mes) >= 1 && parseInt(mes) <= 12 && parseInt(dia) >= 1 && parseInt(dia) <= 31) {
+      fecha = `${anio}-${mes}-${dia}`;
+    }
+  }
+  if (!fecha) {
+    const simple = texto.match(/(\d{2})\s*[/-]\s*(\d{2})\s*[/-]\s*(\d{4})/);
+    if (simple) {
+      let dia = simple[1].padStart(2, '0');
+      let mes = simple[2].padStart(2, '0');
+      let anio = simple[3];
+      if (anio.length === 2) anio = '20' + anio;
+      if (parseInt(mes) >= 1 && parseInt(mes) <= 12 && parseInt(dia) >= 1 && parseInt(dia) <= 31) {
+        fecha = `${anio}-${mes}-${dia}`;
+      }
+    }
+  }
+
+  // Sexo
+  let sexo = null;
+  const sMatch = texto.match(/SEXO\s*[:.]?\s*([HMF])/i);
+  if (sMatch) {
+    sexo = sMatch[1].toUpperCase();
+    if (sexo === 'H') sexo = 'M';
+  }
+  if (!sexo) {
+    if (texto.toUpperCase().includes('HOMBRE') || texto.toUpperCase().includes('MASCULINO')) sexo = 'M';
+    if (texto.toUpperCase().includes('MUJER') || texto.toUpperCase().includes('FEMENINO')) sexo = 'F';
+  }
+
+  // Nombre completo
+  let nombre = null;
   const lines = texto.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].toUpperCase();
-    if (line.includes('NOMBRE')) {
-      let nombrePartes = [];
+    if (lines[i].toUpperCase().includes('NOMBRE')) {
+      let partes = [];
       const resto = lines[i].replace(/NOMBRE\s*[:.]?\s*/i, '');
-      if (resto.length > 3) nombrePartes.push(resto);
+      if (resto.length > 3) partes.push(resto);
       for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
-        const sigLine = lines[j];
-        if (sigLine.match(/^[A-ZÁÉÍÓÚÑ\s]{5,}$/) && sigLine.split(/\s+/).length >= 2) {
-          nombrePartes.push(sigLine);
-        } else {
-          break;
-        }
+        const sig = lines[j];
+        if (sig.match(/^[A-ZÁÉÍÓÚÑ\s]{5,}$/) && sig.split(/\s+/).length >= 2) {
+          partes.push(sig);
+        } else break;
       }
-      if (nombrePartes.length > 0) {
-        return nombrePartes.join(' ').trim();
+      if (partes.length > 0) {
+        nombre = partes.join(' ').trim();
+        break;
       }
     }
   }
-
-  for (let line of lines) {
-    if (line.match(/^[A-ZÁÉÍÓÚÑ\s]{10,}$/)) {
-      const palabras = line.split(/\s+/);
-      if (palabras.length >= 3) {
-        return line;
+  if (!nombre) {
+    for (let line of lines) {
+      if (line.match(/^[A-ZÁÉÍÓÚÑ\s]{10,}$/)) {
+        const palabras = line.split(/\s+/);
+        if (palabras.length >= 3) { nombre = line; break; }
       }
     }
   }
 
-  return null;
+  return { curp, ine, fecha, sexo, nombre };
 }
 
-// ========== EXTRACCIÓN DE FECHA ==========
-function extraerFechaNacimiento(texto) {
-  if (!texto) return null;
-  const regexFecha = /(?:FECHA\s*DE\s*NACIMIENTO|NACIMIENTO|FECHA)\s*[:.]?\s*(\d{2})\s*[/-]\s*(\d{2})\s*[/-]\s*(\d{4})/i;
-  let match = texto.match(regexFecha);
-  if (match) {
-    let dia = match[1].padStart(2, '0');
-    let mes = match[2].padStart(2, '0');
-    let anio = match[3];
-    if (anio.length === 2) anio = '20' + anio;
-    if (parseInt(mes) >= 1 && parseInt(mes) <= 12 && parseInt(dia) >= 1 && parseInt(dia) <= 31) {
-      return `${anio}-${mes}-${dia}`;
-    }
-  }
-
-  const regexFechaSimple = /(\d{2})\s*[/-]\s*(\d{2})\s*[/-]\s*(\d{4})/;
-  match = texto.match(regexFechaSimple);
-  if (match) {
-    let dia = match[1].padStart(2, '0');
-    let mes = match[2].padStart(2, '0');
-    let anio = match[3];
-    if (anio.length === 2) anio = '20' + anio;
-    if (parseInt(mes) >= 1 && parseInt(mes) <= 12 && parseInt(dia) >= 1 && parseInt(dia) <= 31) {
-      return `${anio}-${mes}-${dia}`;
-    }
-  }
-
-  return null;
-}
-
-// ========== EXTRACCIÓN DE SEXO ==========
-function extraerSexo(texto) {
-  if (!texto) return null;
-  const textoUpper = texto.toUpperCase();
-  const regexSexo = /SEXO\s*[:.]?\s*([HMF])/i;
-  let match = texto.match(regexSexo);
-  if (match) {
-    const sexo = match[1].toUpperCase();
-    if (sexo === 'H') return 'M';
-    return sexo;
-  }
-
-  if (textoUpper.includes('HOMBRE') || textoUpper.includes('MASCULINO')) return 'M';
-  if (textoUpper.includes('MUJER') || textoUpper.includes('FEMENINO')) return 'F';
-
-  return null;
-}
-
-// ========== VALIDACIÓN DE DATOS CON OCR ==========
 function validarDatosConOCR(textoOCR, datosUsuario) {
-  const curpEncontrado = extraerCURP(textoOCR);
-  const nombreEncontrado = extraerNombre(textoOCR);
-  const fechaEncontrada = extraerFechaNacimiento(textoOCR);
-  const sexoEncontrado = extraerSexo(textoOCR);
+  const extraidos = extraerDatosINE(textoOCR);
+  console.log('📊 Datos extraídos por OCR:', extraidos);
 
-  console.log('🔍 Comparación OCR vs Usuario:');
-  console.log(`   CURP OCR: ${curpEncontrado} vs Usuario: ${datosUsuario.curp}`);
-  console.log(`   Nombre OCR: ${nombreEncontrado} vs Usuario: ${datosUsuario.nombre_completo}`);
-  console.log(`   Fecha OCR: ${fechaEncontrada} vs Usuario: ${datosUsuario.fecha_nacimiento}`);
-  console.log(`   Sexo OCR: ${sexoEncontrado} vs Usuario: ${datosUsuario.sexo || 'No especificado'}`);
-
-  const curpCoincide = curpEncontrado && curpEncontrado === datosUsuario.curp;
-  const nombreCoincide = nombreEncontrado && datosUsuario.nombre_completo.toUpperCase().replace(/\s/g, '').includes(nombreEncontrado.toUpperCase().replace(/\s/g, ''));
-  const fechaCoincide = fechaEncontrada && datosUsuario.fecha_nacimiento.replace(/\s/g, '').includes(fechaEncontrada.replace(/\s/g, ''));
-  const sexoCoincide = sexoEncontrado && (!datosUsuario.sexo || sexoEncontrado === datosUsuario.sexo);
+  const curpCoincide = extraidos.curp && extraidos.curp === datosUsuario.curp;
+  const ineCoincide = extraidos.ine && extraidos.ine === datosUsuario.numero_ine;
+  const nombreCoincide = extraidos.nombre && datosUsuario.nombre_completo.toUpperCase().replace(/\s/g, '').includes(extraidos.nombre.toUpperCase().replace(/\s/g, ''));
+  const fechaCoincide = extraidos.fecha && datosUsuario.fecha_nacimiento.replace(/\s/g, '').includes(extraidos.fecha.replace(/\s/g, ''));
+  const sexoCoincide = extraidos.sexo && (!datosUsuario.sexo || extraidos.sexo === datosUsuario.sexo);
 
   let puntaje = 0;
   if (curpCoincide) puntaje += 50;
-  if (nombreCoincide) puntaje += 30;
-  if (fechaCoincide) puntaje += 15;
-  if (sexoCoincide) puntaje += 5;
-  if (!sexoEncontrado && (curpCoincide || nombreCoincide || fechaCoincide)) {
-    puntaje = Math.min(puntaje + 5, 100);
-  }
+  if (ineCoincide) puntaje += 30;
+  if (nombreCoincide) puntaje += 15;
+  if (fechaCoincide) puntaje += 5;
+  if (sexoCoincide) puntaje += 0;
 
   console.log(`📊 Puntaje total: ${puntaje}%`);
 
   return {
     curpCoincide,
+    ineCoincide,
     nombreCoincide,
     fechaCoincide,
     sexoCoincide,
-    curpEncontrado,
-    nombreEncontrado,
-    fechaEncontrada,
-    sexoEncontrado,
+    curpEncontrado: extraidos.curp,
+    ineEncontrado: extraidos.ine,
+    nombreEncontrado: extraidos.nombre,
+    fechaEncontrada: extraidos.fecha,
+    sexoEncontrado: extraidos.sexo,
     textoExtraido: textoOCR,
     puntaje: Math.min(puntaje, 100)
   };
 }
 
-module.exports = {
-  extraerTextoDeImagen,
-  extraerCURP,
-  extraerNombre,
-  extraerFechaNacimiento,
-  extraerSexo,
-  validarDatosConOCR
-};
+module.exports = { extraerTextoDeImagen, extraerDatosINE, validarDatosConOCR };

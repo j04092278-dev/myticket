@@ -17,10 +17,9 @@ const pagoRoutes = require('./routes/pagoRoutes');
 const app = express();
 
 // ===== STRIPE WEBHOOK (necesita raw body) =====
-// DEBE ESTAR ANTES de app.use(express.json())
 app.use('/api/pagos/webhook', express.raw({ type: 'application/json' }));
 
-// ===== CORS CONFIGURACIÓN =====
+// ===== CORS =====
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5000',
@@ -44,7 +43,6 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
 }));
 
-// ===== TRUST PROXY =====
 app.set('trust proxy', 1);
 
 app.use(helmet({ contentSecurityPolicy: false }));
@@ -54,21 +52,20 @@ app.use(cookieParser());
 app.use(sanitizeInput);
 app.use(limiter);
 
-// ===== SERVIR ARCHIVOS ESTÁTICOS =====
+// Archivos estáticos
 app.use(express.static(path.join(__dirname, '../../frontend/public')));
 app.use(express.static(path.join(__dirname, '../../frontend/views')));
 app.use('/boletos', express.static(path.join(__dirname, '../../public/boletos')));
 app.use('/uploads', express.static(path.join(__dirname, '../../uploads')));
 
-// ===== RUTAS API =====
+// Rutas API
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/eventos', eventoRoutes);
 app.use('/api/boletos', boletoRoutes);
 app.use('/api/ine', ineRoutes);
 app.use('/api/pagos', pagoRoutes);
 
-// ===== RUTAS EXPLÍCITAS PARA EL FRONTEND (SPA) =====
-// Estas rutas sirven los archivos HTML directamente
+// Rutas frontend
 app.get('/mis-boletos', (req, res) => {
   res.sendFile(path.join(__dirname, '../../frontend/views/mis-boletos.html'));
 });
@@ -85,14 +82,11 @@ app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, '../../frontend/views/login.html'));
 });
 
-// ===== CATCH-ALL PARA EL RESTO DE RUTAS =====
 app.get('*', (req, res) => {
-  console.log(`📄 Sirviendo index.html para ruta: ${req.path}`);
   res.sendFile(path.join(__dirname, '../../frontend/views/index.html'));
 });
 
-// ===== MANEJO DE ERRORES GLOBALES =====
-process.on('uncaughtException', (err) => console.error('❌ Uncaught Exception:', err));
-process.on('unhandledRejection', (reason) => console.error('❌ Unhandled Rejection:', reason));
+process.on('uncaughtException', (err) => console.error('❌', err));
+process.on('unhandledRejection', (reason) => console.error('❌', reason));
 
 module.exports = app;

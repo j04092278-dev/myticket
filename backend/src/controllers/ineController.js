@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const { validateCURP, validateINE } = require('../utils/validators');
 const { extraerTextoDeImagen, validarDatosConOCR } = require('../utils/ocr');
+const { compararCaras } = require('../utils/faceRecognition');
 
 const uploadDir = './uploads/ine/';
 const selfieDir = './uploads/selfies/';
@@ -51,6 +52,7 @@ const validarINEConImagen = async (req, res) => {
   try {
     console.log('📥 Datos recibidos del formulario:', { numero_ine, curp, nombre_completo, fecha_nacimiento, sexo, entidad_emision });
 
+    // Validar CURP y formato de INE
     const curpValido = validateCURP(curp);
     if (!curpValido) {
       console.log(`❌ CURP inválida: ${curp}`);
@@ -63,6 +65,7 @@ const validarINEConImagen = async (req, res) => {
       return res.status(400).json({ error: 'Número de INE inválido. Verifica formato.' });
     }
 
+    // Verificar duplicados
     const exists = await pool.query(
       'SELECT * FROM ine_validacion WHERE id_cliente = $1 OR numero_ine = $2',
       [req.userId, numero_ine]
@@ -71,6 +74,7 @@ const validarINEConImagen = async (req, res) => {
       return res.status(400).json({ error: 'Esta INE ya está registrada.' });
     }
 
+    // Procesar imágenes
     let imagenUrl = null, selfieUrl = null;
     let imagenPath = null, selfiePath = null;
     
@@ -103,7 +107,7 @@ const validarINEConImagen = async (req, res) => {
     }
 
     // ===== OCR MEJORADO =====
-    console.log('🔍 Iniciando OCR (versión mejorada)...');
+    console.log('🔍 Iniciando OCR (versión mejorada con AWS + Tesseract)...');
     const textoOCR = await extraerTextoDeImagen(imagenPath, 'spa');
     
     let datosExtraidos = null;
@@ -134,7 +138,13 @@ const validarINEConImagen = async (req, res) => {
       console.log('❌ OCR: No se pudo extraer texto');
     }
 
-    if (!coincidenciaOCR) {
+    // ===== VERIFICACIÓN FACIAL =====
+    console.log('🔍 Iniciando verificación facial con AWS Rekognition...');
+    const resultadoFacial = await compararCaras(imagenPath, selfiePath);
+    console.log('📊 Resultado facial:', resultadoFacial);
+
+    // Si la validación OCR falla, NO guardar en BD y devolver error
+    if (!coincidenciaOCR || !resultadoFacial.match) {
       if (imagenPath && fs.existsSync(imagenPath)) {
         try { fs.unlinkSync(imagenPath); } catch(e) {}
       }
@@ -142,17 +152,27 @@ const validarINEConImagen = async (req, res) => {
         try { fs.unlinkSync(selfiePath); } catch(e) {}
       }
       
+      const errorMsg = !coincidenciaOCR 
+        ? 'Los datos de la imagen no coinciden con los ingresados. Verifica que la foto sea clara y los datos correctos.'
+        : 'La verificación facial no fue exitosa. Asegúrate de que la selfie sea clara y coincida con la foto del INE.';
+      
       return res.status(400).json({
-        error: 'Los datos de la imagen no coinciden con los ingresados. Verifica que la foto sea clara y los datos correctos.',
+        error: errorMsg,
         ocr: {
           textoExtraido: textoOCR || 'No se pudo extraer texto',
           datosExtraidos: datosExtraidos || null,
-          coincidencia: false,
+          coincidencia: coincidenciaOCR,
           mensaje: mensajeOCR
+        },
+        facial: {
+          match: resultadoFacial.match,
+          similarity: resultadoFacial.similarity || 0,
+          mensaje: resultadoFacial.mensaje
         }
       });
     }
 
+    // Guardar en BD
     const curpFinal = datosExtraidos?.curpEncontrado || curp;
     const nombreFinal = datosExtraidos?.nombreEncontrado || nombre_completo;
     const fechaFinal = datosExtraidos?.fechaEncontrada || fecha_nacimiento;
@@ -162,7 +182,7 @@ const validarINEConImagen = async (req, res) => {
       `INSERT INTO ine_validacion
        (id_cliente, numero_ine, curp, nombre_completo, fecha_nacimiento, sexo, 
         entidad_emision, documento_imagen, selfie_imagen, validado, facial_verificado)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true, true) RETURNING *`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true, $10) RETURNING *`,
       [
         req.userId, 
         numero_ine, 
@@ -172,19 +192,25 @@ const validarINEConImagen = async (req, res) => {
         sexoFinal, 
         entidad_emision || '', 
         imagenUrl, 
-        selfieUrl
+        selfieUrl,
+        resultadoFacial.match
       ]
     );
 
     res.json({
       success: true,
       validacion: result.rows[0],
-      mensaje: '✅ INE validado correctamente. Los datos coinciden con la imagen.',
+      mensaje: '✅ INE validado correctamente. OCR y verificación facial exitosos.',
       ocr: {
         textoExtraido: textoOCR,
         datosExtraidos: datosExtraidos,
         coincidencia: true,
         mensaje: mensajeOCR
+      },
+      facial: {
+        match: resultadoFacial.match,
+        similarity: resultadoFacial.similarity || 0,
+        mensaje: resultadoFacial.mensaje
       }
     });
 

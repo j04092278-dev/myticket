@@ -4,44 +4,24 @@ const QRCode = require('qrcode');
 const pdf = require('html-pdf');
 const { encrypt } = require('../utils/encrypt');
 
-// ===== GENERAR HTML DEL BOLETO (CON QR ESCANEABLE) =====
+// ===== GENERAR HTML DEL BOLETO =====
 const generarBoletoHTML = async (data) => {
   const { codigo, evento, nombre_usuario, fecha, ubicacion, zona, asiento, precio, imagen_url } = data;
 
-  // Contenido del QR: JSON compacto
   const qrContent = JSON.stringify({
-    c: codigo,
-    e: evento,
-    u: nombre_usuario,
-    f: fecha,
-    l: ubicacion,
-    z: zona || 'General',
-    a: asiento || 'Libre',
-    p: precio
+    c: codigo, e: evento, u: nombre_usuario, f: fecha, l: ubicacion, z: zona || 'General', a: asiento || 'Libre', p: precio
   });
 
   let qrBase64 = '';
   try {
-    qrBase64 = await QRCode.toDataURL(qrContent, {
-      errorCorrectionLevel: 'H',
-      margin: 2,
-      width: 160,
-      color: { dark: '#000000', light: '#FFFFFF' }
-    });
-    console.log('✅ QR generado correctamente');
+    qrBase64 = await QRCode.toDataURL(qrContent, { errorCorrectionLevel: 'H', margin: 2, width: 160 });
   } catch (err) {
     console.error('❌ Error generando QR:', err);
-    qrBase64 = '';
   }
 
   const colors = {
-    primary: '#ff0000',
-    secondary: '#cc0000',
-    light: '#ff3333',
-    dark: '#1A0505',
-    bg: '#0A0A0A',
-    text: '#FFFFFF',
-    textSecondary: '#9CA3AF',
+    primary: '#ff0000', secondary: '#cc0000', light: '#ff3333',
+    dark: '#1A0505', bg: '#0A0A0A', text: '#FFFFFF', textSecondary: '#9CA3AF'
   };
 
   let fondoStyle = `background: linear-gradient(145deg, ${colors.dark}, ${colors.bg});`;
@@ -290,7 +270,6 @@ const descargarBoleto = async (req, res) => {
       res.send(pdfBuffer);
     } catch (pdfError) {
       console.error('❌ Error generando PDF:', pdfError);
-      // Fallback a HTML
       res.setHeader('Content-Type', 'text/html');
       res.setHeader('Content-Disposition', `attachment; filename="boleto_${boleto.codigo_unico}.html"`);
       res.send(html);
