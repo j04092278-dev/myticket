@@ -22,8 +22,8 @@
     "pg": "^8.11.3",
     "qrcode": "^1.5.4",
     "sharp": "^0.33.5",
-    "stripe": "^22.3.2",
-    "tesseract.js": "^5.1.1",
+    "stripe": "^17.7.0",
+    "tesseract.js": "^5.0.0",
     "xss": "^1.0.14"
   },
   "devDependencies": {

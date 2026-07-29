@@ -16,6 +16,10 @@ const pagoRoutes = require('./routes/pagoRoutes');
 
 const app = express();
 
+// ===== STRIPE WEBHOOK (necesita raw body) =====
+// DEBE ESTAR ANTES de app.use(express.json())
+app.use('/api/pagos/webhook', express.raw({ type: 'application/json' }));
+
 // ===== CORS CONFIGURACIÓN =====
 const allowedOrigins = [
   'http://localhost:3000',
