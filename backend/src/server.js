@@ -2,7 +2,7 @@ const app = require('./app');
 const fs = require('fs');
 const pool = require('./config/database');
 
-// Crear carpetas necesarias (si no existen)
+// Crear carpetas necesarias
 const dirs = ['./uploads/ine', './uploads/selfies', './uploads/eventos', './public/boletos', './logs'];
 dirs.forEach(dir => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -25,7 +25,8 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 MyTicket en http://localhost:${PORT}`);
   console.log('🔐 Admin: admin@myticket.com / admin123');
+  console.log(`🌍 Modo: ${process.env.NODE_ENV || 'development'}`);
 });

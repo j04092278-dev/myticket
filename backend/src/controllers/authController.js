@@ -38,20 +38,26 @@ const login = async (req, res) => {
 
     const token = jwt.sign(
       { id: user.id_cliente, email: user.correo_usuario, isAdmin: user.es_admin },
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET || 'myticket-secret-key-2024',
       { expiresIn: '7d' }
     );
 
-    // Configuración de cookie CORREGIDA
+    // ===== CONFIGURACIÓN DE COOKIE CORREGIDA =====
     const isProduction = process.env.NODE_ENV === 'production';
-    res.cookie('token', token, {
+    const cookieOptions = {
       httpOnly: true,
-      secure: isProduction,          // true en producción (HTTPS)
-      sameSite: 'lax',               // permite navegación entre páginas del mismo sitio
+      secure: isProduction,
+      sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: '/',
-      // NO usar 'domain' para que funcione en el dominio exacto (sin subdominios)
-    });
+      path: '/'
+    };
+    
+    // En producción, si estamos en Render, usar el dominio sin subdominio
+    if (isProduction && process.env.RENDER_EXTERNAL_URL) {
+      // No establecer domain para que funcione en el dominio exacto
+    }
+
+    res.cookie('token', token, cookieOptions);
 
     console.log(`✅ Cookie token establecida para: ${user.correo_usuario}`);
     console.log(`   Secure: ${isProduction}, SameSite: lax, Path: /`);
@@ -84,6 +90,7 @@ const logout = (req, res) => {
 
 const getMe = async (req, res) => {
   try {
+    console.log('🔍 getMe: userId =', req.userId);
     if (!req.userId) {
       console.log('❌ getMe: userId no presente');
       return res.status(401).json({ error: 'No autenticado' });

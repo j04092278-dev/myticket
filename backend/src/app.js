@@ -19,17 +19,19 @@ const app = express();
 // ===== STRIPE WEBHOOK (necesita raw body) =====
 app.use('/api/pagos/webhook', express.raw({ type: 'application/json' }));
 
-// ===== CORS =====
+// ===== CORS CORREGIDO =====
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5000',
   'https://myticket.onrender.com',
+  'https://myticket-prod.onrender.com',
   process.env.FRONTEND_URL,
   process.env.RENDER_EXTERNAL_URL
 ].filter(Boolean);
 
 app.use(cors({
   origin: function (origin, callback) {
+    // Permitir peticiones sin origen (como Postman) en desarrollo
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
       callback(null, true);
@@ -40,33 +42,39 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'Accept']
 }));
 
 // ===== TRUST PROXY (necesario para HTTPS en Render) =====
-app.set('trust proxy', 1);
+app.set('trust proxy', true);
 
-app.use(helmet({ contentSecurityPolicy: false }));
+// ===== MIDDLEWARES =====
+app.use(helmet({ 
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: false,
+  crossOriginResourcePolicy: false
+}));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 app.use(sanitizeInput);
 app.use(limiter);
 
-// Archivos estáticos
+// ===== ARCHIVOS ESTÁTICOS =====
 app.use(express.static(path.join(__dirname, '../../frontend/public')));
 app.use(express.static(path.join(__dirname, '../../frontend/views')));
 app.use('/boletos', express.static(path.join(__dirname, '../../public/boletos')));
 app.use('/uploads', express.static(path.join(__dirname, '../../uploads')));
 
-// Rutas API
+// ===== RUTAS API =====
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/eventos', eventoRoutes);
 app.use('/api/boletos', boletoRoutes);
 app.use('/api/ine', ineRoutes);
 app.use('/api/pagos', pagoRoutes);
 
-// Rutas frontend
+// ===== RUTAS FRONTEND =====
 app.get('/mis-boletos', (req, res) => {
   res.sendFile(path.join(__dirname, '../../frontend/views/mis-boletos.html'));
 });
@@ -82,12 +90,16 @@ app.get('/admin-login', (req, res) => {
 app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, '../../frontend/views/login.html'));
 });
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '../../frontend/views/index.html'));
+});
 
+// ===== CATCH-ALL =====
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../../frontend/views/index.html'));
 });
 
-process.on('uncaughtException', (err) => console.error('❌', err));
-process.on('unhandledRejection', (reason) => console.error('❌', reason));
+process.on('uncaughtException', (err) => console.error('❌ Uncaught Exception:', err));
+process.on('unhandledRejection', (reason) => console.error('❌ Unhandled Rejection:', reason));
 
 module.exports = app;

@@ -2,6 +2,8 @@ const jwt = require('jsonwebtoken');
 
 const authMiddleware = (req, res, next) => {
   let token = req.cookies.token;
+  
+  // Si no hay token en cookies, buscar en header Authorization
   if (!token) {
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -15,7 +17,7 @@ const authMiddleware = (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'myticket-secret-key-2024');
     req.userId = decoded.id;
     req.isAdmin = decoded.isAdmin || false;
     req.userEmail = decoded.email;
