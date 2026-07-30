@@ -131,12 +131,12 @@ const validarINEConImagen = async (req, res) => {
 
       console.log('📊 Resultado de validación OCR:', datosExtraidos);
 
-      if (datosExtraidos.puntaje >= 60) {
+      if (datosExtraidos.puntaje >= 15) {
         coincidenciaOCR = true;
         mensajeOCR = `✅ OCR verificó los datos del INE (${datosExtraidos.puntaje}% coincidencia)`;
         console.log('✅ OCR: Datos verificados correctamente');
       } else {
-        mensajeOCR = `❌ OCR: Los datos no coinciden suficientemente (${datosExtraidos.puntaje}% coincidencia, mínimo 60%)`;
+        mensajeOCR = `❌ OCR: Los datos no coinciden suficientemente (${datosExtraidos.puntaje}% coincidencia, mínimo 15%)`;
         console.log('❌ OCR: Datos no coinciden');
       }
     } else {

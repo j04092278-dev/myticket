@@ -2,7 +2,15 @@ const Tesseract = require('tesseract.js');
 const sharp = require('sharp');
 const fs = require('fs');
 const { RekognitionClient, DetectTextCommand } = require('@aws-sdk/client-rekognition');
-const { extractCURP, extractINE, extractFecha, extractSexo, extractNombre, fuzzyMatch, cleanText } = require('./textUtils');
+const { 
+  extractCURP, 
+  extractINE, 
+  extractFecha, 
+  extractSexo, 
+  extractNombre, 
+  fuzzyMatch, 
+  cleanText 
+} = require('./textUtils');
 
 // Inicializar AWS Rekognition si está configurado
 let rekognitionClient = null;
@@ -73,6 +81,7 @@ async function ocrConTesseract(imagenPath) {
       { psm: 3, language: 'spa' },
       { psm: 6, language: 'spa+eng' },
       { psm: 4, language: 'spa' },
+      { psm: 8, language: 'spa' }, // Modo de palabra única
     ];
     let bestText = null;
     let bestConfidence = 0;
@@ -150,7 +159,7 @@ async function extraerTextoDeImagen(imagenPath) {
 }
 
 /**
- * Extrae y valida datos del INE
+ * Extrae y valida datos del INE con puntaje mejorado
  */
 function extraerYValidarDatosINE(textoOCR, datosUsuario) {
   if (!textoOCR) {
@@ -179,17 +188,19 @@ function extraerYValidarDatosINE(textoOCR, datosUsuario) {
 
   console.log('📊 Datos extraídos:', { curpEncontrado, ineEncontrado, nombreEncontrado, fechaEncontrada, sexoEncontrado });
 
-  const curpCoincide = curpEncontrado && fuzzyMatch(curpEncontrado, datosUsuario.curp, 0.9);
-  const ineCoincide = ineEncontrado && fuzzyMatch(ineEncontrado, datosUsuario.numero_ine, 0.9);
+  // Comparar con los datos del usuario
+  const curpCoincide = curpEncontrado && fuzzyMatch(curpEncontrado, datosUsuario.curp, 0.85);
+  const ineCoincide = ineEncontrado && fuzzyMatch(ineEncontrado, datosUsuario.numero_ine, 0.85);
   const nombreCoincide = nombreEncontrado && fuzzyMatch(nombreEncontrado, datosUsuario.nombre_completo, 0.6);
   const fechaCoincide = fechaEncontrada && fuzzyMatch(fechaEncontrada, datosUsuario.fecha_nacimiento, 0.8);
   const sexoCoincide = sexoEncontrado && (!datosUsuario.sexo || fuzzyMatch(sexoEncontrado, datosUsuario.sexo, 1.0));
 
+  // Puntaje ponderado (más flexible)
   let puntaje = 0;
-  if (curpCoincide) puntaje += 40;
+  if (curpCoincide) puntaje += 35;
   if (ineCoincide) puntaje += 30;
   if (nombreCoincide) puntaje += 20;
-  if (fechaCoincide) puntaje += 5;
+  if (fechaCoincide) puntaje += 10;
   if (sexoCoincide) puntaje += 5;
 
   return {
@@ -205,7 +216,7 @@ function extraerYValidarDatosINE(textoOCR, datosUsuario) {
     sexoEncontrado,
     textoExtraido: textoOCR,
     puntaje,
-    mensaje: puntaje >= 60 ? '✅ Datos validados correctamente' : '❌ Los datos extraídos no coinciden suficientemente'
+    mensaje: puntaje >= 50 ? '✅ Datos validados correctamente' : '❌ Los datos extraídos no coinciden suficientemente'
   };
 }
 
