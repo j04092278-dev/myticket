@@ -19,11 +19,10 @@ function cleanText(text) {
 function correctOcrChars(text) {
   if (!text) return '';
   const corrections = {
-    '0': 'O', // En CURP o INE suelen ser letras, no números
+    '0': 'O',
     '1': 'I',
     '5': 'S',
     '8': 'B',
-    // agregar más según sea necesario
   };
   let corrected = '';
   for (let ch of text) {
@@ -37,11 +36,9 @@ function correctOcrChars(text) {
  */
 function extractCURP(text) {
   const clean = cleanText(text);
-  // Patrón estándar: 4 letras + 6 dígitos + 6 alfanuméricos + 1 dígito/letra
   const regex = /\b([A-Z]{4}[0-9]{6}[A-Z0-9]{6}[0-9X])\b/;
   const match = clean.match(regex);
   if (match) return match[1];
-  // Buscar "CURP" seguido de 18 caracteres
   const curpLabel = /CURP\s*[:.]?\s*([A-Z0-9]{18})/i;
   const matchLabel = clean.match(curpLabel);
   if (matchLabel) return matchLabel[1].toUpperCase();
@@ -49,15 +46,13 @@ function extractCURP(text) {
 }
 
 /**
- * Extrae el número de INE (Clave de Elector) de un texto OCR
+ * Extrae el número de INE (Clave de Elector)
  */
 function extractINE(text) {
   const clean = cleanText(text);
-  // Buscar "CLAVE DE ELECTOR" o "CLAVE ELECTOR" seguido de 18 caracteres
   const ineLabel = /CLAVE\s*(?:DE\s*)?ELECTOR\s*[:.]?\s*([A-Z0-9]{18})/i;
   const match = clean.match(ineLabel);
   if (match) return match[1].toUpperCase();
-  // Buscar cualquier bloque de 18 caracteres que parezca INE (letras y números)
   const ineBlock = /\b([A-Z0-9]{18})\b/;
   const allBlocks = clean.match(ineBlock);
   if (allBlocks) return allBlocks[0].toUpperCase();
@@ -69,7 +64,6 @@ function extractINE(text) {
  */
 function extractFecha(text) {
   const clean = cleanText(text);
-  // Buscar etiqueta "FECHA DE NACIMIENTO" o "NACIMIENTO"
   const fechaLabel = /(?:FECHA\s*DE\s*NACIMIENTO|NACIMIENTO)\s*[:.]?\s*(\d{2})\s*[/-]\s*(\d{2})\s*[/-]\s*(\d{4})/i;
   let match = clean.match(fechaLabel);
   if (match) {
@@ -81,7 +75,6 @@ function extractFecha(text) {
       return `${anio}-${mes}-${dia}`;
     }
   }
-  // Buscar cualquier fecha con formato DD/MM/YYYY o DD-MM-YYYY
   const fechaSimple = /\b(\d{2})\s*[/-]\s*(\d{2})\s*[/-]\s*(\d{4})\b/;
   match = clean.match(fechaSimple);
   if (match) {
@@ -114,16 +107,14 @@ function extractSexo(text) {
 }
 
 /**
- * Extrae nombre completo (intenta encontrar líneas con al menos 2 palabras y longitud > 10)
+ * Extrae nombre completo
  */
 function extractNombre(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-  // Buscar línea que contenga "NOMBRE"
   for (let i = 0; i < lines.length; i++) {
     if (lines[i].toUpperCase().includes('NOMBRE')) {
       let nombre = lines[i].replace(/NOMBRE\s*[:.]?\s*/i, '').trim();
       if (nombre.length > 5) {
-        // Puede que el nombre esté en varias líneas, concatenar las siguientes
         let j = i + 1;
         while (j < lines.length && lines[j].match(/^[A-ZÁÉÍÓÚÑ\s]{5,}$/) && !lines[j].toUpperCase().includes('CURP')) {
           nombre += ' ' + lines[j].trim();
@@ -133,7 +124,6 @@ function extractNombre(text) {
       }
     }
   }
-  // Si no se encuentra "NOMBRE", buscar líneas con al menos 3 palabras y longitud > 10
   for (let line of lines) {
     const words = line.split(/\s+/);
     if (words.length >= 3 && line.length > 10 && !line.toUpperCase().includes('CURP') && !line.toUpperCase().includes('INE')) {
@@ -144,14 +134,13 @@ function extractNombre(text) {
 }
 
 /**
- * Compara dos strings con tolerancia (elimina espacios, mayúsculas, acentos)
+ * Compara dos strings con tolerancia (Jaro‑Winkler aproximado por Levenshtein)
  */
 function fuzzyMatch(str1, str2, threshold = 0.7) {
   if (!str1 || !str2) return false;
   const s1 = cleanText(str1);
   const s2 = cleanText(str2);
   if (s1 === s2) return true;
-  // Calcular similitud de Jaro-Winkler o Levenshtein (usamos una aproximación simple)
   const distance = levenshteinDistance(s1, s2);
   const maxLen = Math.max(s1.length, s2.length);
   if (maxLen === 0) return true;
@@ -160,7 +149,7 @@ function fuzzyMatch(str1, str2, threshold = 0.7) {
 }
 
 /**
- * Distancia de Levenshtein simple
+ * Distancia de Levenshtein
  */
 function levenshteinDistance(a, b) {
   if (a.length === 0) return b.length;

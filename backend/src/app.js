@@ -43,6 +43,7 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
 }));
 
+// ===== TRUST PROXY (necesario para HTTPS en Render) =====
 app.set('trust proxy', 1);
 
 app.use(helmet({ contentSecurityPolicy: false }));

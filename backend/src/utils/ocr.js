@@ -20,8 +20,7 @@ if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY && proces
 }
 
 /**
- * Preprocesa la imagen para mejorar OCR: redimensiona, convierte a grises, aumenta contraste,
- * y aplica umbralización adaptativa.
+ * Preprocesa la imagen para mejorar OCR
  */
 async function preprocesarImagen(imagenPath) {
   try {
@@ -29,10 +28,10 @@ async function preprocesarImagen(imagenPath) {
     await sharp(imagenPath)
       .resize(1600, 1200, { fit: 'inside', withoutEnlargement: false })
       .grayscale()
-      .normalize() // Mejora contraste
+      .normalize()
       .sharpen({ sigma: 2, m1: 1, m2: 0.5 })
       .modulate({ brightness: 1.3, saturation: 1.2 })
-      .png({ compressionLevel: 9 }) // Usar PNG para mejor calidad
+      .png({ compressionLevel: 9 })
       .toFile(outputPath);
     return outputPath;
   } catch (err) {
@@ -42,7 +41,7 @@ async function preprocesarImagen(imagenPath) {
 }
 
 /**
- * OCR con AWS Rekognition (retorna texto completo)
+ * OCR con AWS Rekognition
  */
 async function ocrConAWS(imagenPath) {
   if (!rekognitionClient) return null;
@@ -69,12 +68,11 @@ async function ocrConAWS(imagenPath) {
 async function ocrConTesseract(imagenPath) {
   try {
     const imagenProcesada = await preprocesarImagen(imagenPath);
-    // Configuraciones: psm 6 (bloque de texto), 3 (automático), 4 (vertical)
     const configs = [
       { psm: 6, language: 'spa' },
       { psm: 3, language: 'spa' },
       { psm: 6, language: 'spa+eng' },
-      { psm: 4, language: 'spa' }, // para columnas
+      { psm: 4, language: 'spa' },
     ];
     let bestText = null;
     let bestConfidence = 0;
@@ -89,7 +87,6 @@ async function ocrConTesseract(imagenPath) {
         },
         tessedit_pageseg_mode: config.psm,
         tessedit_ocr_engine_mode: '3',
-        // Whitelist para caracteres comunes en INE
         tessedit_char_whitelist: 'ABCDEFGHIJKLMNÑOPQRSTUVWXYZ0123456789/-.: ',
       });
       const text = result.data.text;
@@ -100,7 +97,6 @@ async function ocrConTesseract(imagenPath) {
       }
     }
 
-    // Limpiar archivo procesado si existe
     if (imagenProcesada !== imagenPath && fs.existsSync(imagenProcesada)) {
       fs.unlinkSync(imagenProcesada);
     }
@@ -117,13 +113,12 @@ async function ocrConTesseract(imagenPath) {
 }
 
 /**
- * Función principal de extracción de texto de imagen
+ * Función principal de extracción de texto
  */
 async function extraerTextoDeImagen(imagenPath) {
   console.log('📖 Extrayendo texto del INE...');
   let texto = null;
 
-  // 1. Intentar con AWS Rekognition
   if (rekognitionClient) {
     console.log('🔍 Intentando con AWS Rekognition...');
     texto = await ocrConAWS(imagenPath);
@@ -133,7 +128,6 @@ async function extraerTextoDeImagen(imagenPath) {
     }
   }
 
-  // 2. Intentar con Tesseract
   console.log('🔍 Intentando con Tesseract.js...');
   texto = await ocrConTesseract(imagenPath);
   if (texto && texto.length > 30) {
@@ -141,7 +135,6 @@ async function extraerTextoDeImagen(imagenPath) {
     return cleanText(texto);
   }
 
-  // 3. Último intento sin preprocesar y con idioma español simple
   console.log('⚠️ Último intento con Tesseract sin preprocesar...');
   try {
     const result = await Tesseract.recognize(imagenPath, 'spa', {
@@ -157,8 +150,7 @@ async function extraerTextoDeImagen(imagenPath) {
 }
 
 /**
- * Extrae y valida datos del INE usando el texto OCR y los datos proporcionados por el usuario.
- * Devuelve un objeto con los campos extraídos y puntaje de coincidencia.
+ * Extrae y valida datos del INE
  */
 function extraerYValidarDatosINE(textoOCR, datosUsuario) {
   if (!textoOCR) {
@@ -179,7 +171,6 @@ function extraerYValidarDatosINE(textoOCR, datosUsuario) {
     };
   }
 
-  // Extraer cada campo usando las funciones de textUtils
   const curpEncontrado = extractCURP(textoOCR);
   const ineEncontrado = extractINE(textoOCR);
   const nombreEncontrado = extractNombre(textoOCR);
@@ -188,14 +179,12 @@ function extraerYValidarDatosINE(textoOCR, datosUsuario) {
 
   console.log('📊 Datos extraídos:', { curpEncontrado, ineEncontrado, nombreEncontrado, fechaEncontrada, sexoEncontrado });
 
-  // Comparar con los datos del usuario usando fuzzy match
   const curpCoincide = curpEncontrado && fuzzyMatch(curpEncontrado, datosUsuario.curp, 0.9);
   const ineCoincide = ineEncontrado && fuzzyMatch(ineEncontrado, datosUsuario.numero_ine, 0.9);
   const nombreCoincide = nombreEncontrado && fuzzyMatch(nombreEncontrado, datosUsuario.nombre_completo, 0.6);
   const fechaCoincide = fechaEncontrada && fuzzyMatch(fechaEncontrada, datosUsuario.fecha_nacimiento, 0.8);
   const sexoCoincide = sexoEncontrado && (!datosUsuario.sexo || fuzzyMatch(sexoEncontrado, datosUsuario.sexo, 1.0));
 
-  // Calcular puntaje ponderado
   let puntaje = 0;
   if (curpCoincide) puntaje += 40;
   if (ineCoincide) puntaje += 30;
@@ -203,7 +192,7 @@ function extraerYValidarDatosINE(textoOCR, datosUsuario) {
   if (fechaCoincide) puntaje += 5;
   if (sexoCoincide) puntaje += 5;
 
-  const resultado = {
+  return {
     curpCoincide,
     ineCoincide,
     nombreCoincide,
@@ -218,8 +207,6 @@ function extraerYValidarDatosINE(textoOCR, datosUsuario) {
     puntaje,
     mensaje: puntaje >= 60 ? '✅ Datos validados correctamente' : '❌ Los datos extraídos no coinciden suficientemente'
   };
-
-  return resultado;
 }
 
 module.exports = {

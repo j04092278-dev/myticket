@@ -42,15 +42,15 @@ const login = async (req, res) => {
       { expiresIn: '7d' }
     );
 
-    // ===== CONFIGURACIÓN DE COOKIE SIN DOMAIN (PARA QUE FUNCIONE EN EL MISMO DOMINIO) =====
+    // Configuración de cookie CORREGIDA
     const isProduction = process.env.NODE_ENV === 'production';
     res.cookie('token', token, {
       httpOnly: true,
-      secure: isProduction,      // true en producción (HTTPS)
-      sameSite: 'lax',           // Permite navegación entre páginas
+      secure: isProduction,          // true en producción (HTTPS)
+      sameSite: 'lax',               // permite navegación entre páginas del mismo sitio
       maxAge: 7 * 24 * 60 * 60 * 1000,
       path: '/',
-      // domain: undefined        // No usar domain para que funcione en el dominio exacto
+      // NO usar 'domain' para que funcione en el dominio exacto (sin subdominios)
     });
 
     console.log(`✅ Cookie token establecida para: ${user.correo_usuario}`);
