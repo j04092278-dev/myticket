@@ -46,7 +46,7 @@ app.use(cors({
 }));
 
 // ===== TRUST PROXY (necesario para HTTPS en Render) =====
-app.set('trust proxy', true);
+app.set('trust proxy', 1);
 
 // ===== MIDDLEWARES =====
 app.use(helmet({ 
