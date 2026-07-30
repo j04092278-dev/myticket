@@ -12,10 +12,31 @@ async function loadUser() {
       await verificarPagoExitoso();
       cargarBoletos();
     } else {
-      window.location.href = '/login.html?redirect=mis-boletos';
+      // No redirigir automáticamente, mostrar mensaje y opción de login
+      const container = document.getElementById('boletosContainer');
+      container.innerHTML = `
+        <div style="text-align:center; padding:2rem;">
+          <i class="fas fa-user-astronaut" style="font-size:3rem; color:var(--red-main);"></i>
+          <h2 style="color:var(--text-secondary);">🪐 Para ver tus boletos, inicia sesión</h2>
+          <a href="/login.html" class="btn-primary" style="display:inline-block; margin-top:1rem;">Iniciar Sesión</a>
+        </div>
+      `;
+      // Ocultar botón logout y mostrar login
+      document.getElementById('loginBtn').style.display = 'inline-block';
+      document.getElementById('logoutBtn').style.display = 'none';
+      document.getElementById('userName').style.display = 'none';
     }
   } catch(e) {
-    window.location.href = '/login.html?redirect=mis-boletos';
+    console.error('Error en loadUser:', e);
+    // También mostrar mensaje
+    const container = document.getElementById('boletosContainer');
+    container.innerHTML = `
+      <div style="text-align:center; padding:2rem;">
+        <i class="fas fa-exclamation-triangle" style="font-size:3rem; color:var(--red-main);"></i>
+        <h2 style="color:var(--text-secondary);">⚠️ Error al cargar tu sesión</h2>
+        <a href="/login.html" class="btn-primary" style="display:inline-block; margin-top:1rem;">Iniciar Sesión</a>
+      </div>
+    `;
   }
 }
 
@@ -99,7 +120,14 @@ async function cargarBoletos() {
     container.innerHTML = html;
   } catch (err) {
     if (err.message && err.message.includes('401')) {
-      window.location.href = '/login.html?redirect=mis-boletos';
+      // No redirigir, mostrar mensaje
+      container.innerHTML = `
+        <div style="text-align:center; padding:2rem;">
+          <i class="fas fa-user-astronaut" style="font-size:3rem; color:var(--red-main);"></i>
+          <h2 style="color:var(--text-secondary);">🪐 Para ver tus boletos, inicia sesión</h2>
+          <a href="/login.html" class="btn-primary" style="display:inline-block; margin-top:1rem;">Iniciar Sesión</a>
+        </div>
+      `;
     } else {
       showToast('Error al cargar tus boletos', 'error');
       container.innerHTML = `<p style="text-align:center; color:var(--red-light);">❌ Error: ${err.message}</p>`;
@@ -136,5 +164,6 @@ async function descargarBoleto(idBoleto) {
   }
 }
 
+// Iniciar
 loadUser();
 if (typeof createStarField === 'function') createStarField();
