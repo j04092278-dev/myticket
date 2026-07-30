@@ -4,7 +4,7 @@ const sharp = require('sharp');
 const path = require('path');
 const fs = require('fs');
 const { validateCURP, validateINE } = require('../utils/validators');
-const { extraerTextoDeImagen, validarDatosConOCR } = require('../utils/ocr');
+const { extraerTextoDeImagen, extraerYValidarDatosINE } = require('../utils/ocr');
 const { compararCaras } = require('../utils/faceRecognition');
 
 const uploadDir = './uploads/ine/';
@@ -56,7 +56,8 @@ const limpiarNombre = (nombre) => {
     .replace(/\|/g, ' ')
     .replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ\s]/g, ' ')
     .replace(/\s+/g, ' ')
-    .trim();
+    .trim()
+    .toUpperCase();
 };
 
 const validarINEConImagen = async (req, res) => {
@@ -64,32 +65,32 @@ const validarINEConImagen = async (req, res) => {
   try {
     console.log('📥 Datos recibidos del formulario:', { numero_ine, curp, nombre_completo, fecha_nacimiento, sexo, entidad_emision });
 
-    // Validar CURP y formato de INE
+    // Validar CURP y formato de INE (más flexibles)
     const curpValido = validateCURP(curp);
     if (!curpValido) {
       console.log(`❌ CURP inválida: ${curp}`);
-      return res.status(400).json({ error: 'CURP inválida. Verifica el formato.' });
+      return res.status(400).json({ error: 'CURP inválida. Verifica el formato (18 caracteres alfanuméricos).' });
     }
 
     const ineValido = validateINE(numero_ine);
     if (!ineValido) {
       console.log(`❌ Número de INE inválido: ${numero_ine}`);
-      return res.status(400).json({ error: 'Número de INE inválido. Verifica formato.' });
+      return res.status(400).json({ error: 'Número de INE inválido. Verifica formato (18 caracteres).' });
     }
 
-    // Verificar duplicados
+    // Verificar duplicados (por cliente y por número de INE)
     const exists = await pool.query(
       'SELECT * FROM ine_validacion WHERE id_cliente = $1 OR numero_ine = $2',
       [req.userId, numero_ine]
     );
     if (exists.rows.length > 0) {
-      return res.status(400).json({ error: 'Esta INE ya está registrada.' });
+      return res.status(400).json({ error: 'Esta INE ya está registrada para este usuario o ya existe.' });
     }
 
     // Procesar imágenes
     let imagenUrl = null, selfieUrl = null;
     let imagenPath = null, selfiePath = null;
-    
+
     if (req.files) {
       if (req.files['ineImage']) {
         const ineFile = req.files['ineImage'][0];
@@ -113,36 +114,37 @@ const validarINEConImagen = async (req, res) => {
         console.log('✅ Selfie guardada:', selfiePath);
       }
     }
-    
+
     if (!imagenUrl || !selfieUrl) {
       return res.status(400).json({ error: 'Debes subir foto de INE y selfie.' });
     }
 
     // ===== OCR MEJORADO =====
-    console.log('🔍 Iniciando OCR (versión mejorada con AWS + Tesseract)...');
-    const textoOCR = await extraerTextoDeImagen(imagenPath, 'spa');
-    
+    console.log('🔍 Iniciando OCR (versión mejorada)...');
+    const textoOCR = await extraerTextoDeImagen(imagenPath);
+
     let datosExtraidos = null;
     let coincidenciaOCR = false;
     let mensajeOCR = 'No se pudo leer el texto del INE con OCR.';
-    
+
     if (textoOCR) {
-      datosExtraidos = validarDatosConOCR(textoOCR, {
+      // Usar la nueva función de extracción y validación
+      datosExtraidos = extraerYValidarDatosINE(textoOCR, {
         curp,
+        numero_ine,
         nombre_completo,
         fecha_nacimiento,
         sexo
       });
-      
-      console.log('📊 Resultado OCR:', datosExtraidos);
-      
-      const puntajeMinimo = 30;
-      if (datosExtraidos.puntaje >= puntajeMinimo) {
+
+      console.log('📊 Resultado de validación OCR:', datosExtraidos);
+
+      if (datosExtraidos.puntaje >= 60) {
         coincidenciaOCR = true;
         mensajeOCR = `✅ OCR verificó los datos del INE (${datosExtraidos.puntaje}% coincidencia)`;
         console.log('✅ OCR: Datos verificados correctamente');
       } else {
-        mensajeOCR = `❌ OCR: Los datos no coinciden (${datosExtraidos.puntaje}% coincidencia, mínimo ${puntajeMinimo}%)`;
+        mensajeOCR = `❌ OCR: Los datos no coinciden suficientemente (${datosExtraidos.puntaje}% coincidencia, mínimo 60%)`;
         console.log('❌ OCR: Datos no coinciden');
       }
     } else {
@@ -155,19 +157,25 @@ const validarINEConImagen = async (req, res) => {
     const resultadoFacial = await compararCaras(imagenPath, selfiePath);
     console.log('📊 Resultado facial:', resultadoFacial);
 
-    // Si la validación OCR falla, NO guardar en BD y devolver error
+    // Si la validación OCR falla o la facial falla, devolver error detallado
     if (!coincidenciaOCR || !resultadoFacial.match) {
+      // Limpiar archivos
       if (imagenPath && fs.existsSync(imagenPath)) {
         try { fs.unlinkSync(imagenPath); } catch(e) {}
       }
       if (selfiePath && fs.existsSync(selfiePath)) {
         try { fs.unlinkSync(selfiePath); } catch(e) {}
       }
-      
-      const errorMsg = !coincidenciaOCR 
-        ? 'Los datos de la imagen no coinciden con los ingresados. Verifica que la foto sea clara y los datos correctos.'
-        : 'La verificación facial no fue exitosa. Asegúrate de que la selfie sea clara y coincida con la foto del INE.';
-      
+
+      let errorMsg = '';
+      if (!coincidenciaOCR && !resultadoFacial.match) {
+        errorMsg = '❌ La imagen del INE no coincide con los datos ingresados y la verificación facial falló.';
+      } else if (!coincidenciaOCR) {
+        errorMsg = '❌ Los datos extraídos de la imagen no coinciden con los ingresados. Verifica que la foto sea clara.';
+      } else {
+        errorMsg = '❌ La verificación facial no fue exitosa. Asegúrate de que la selfie sea clara y coincida con la foto del INE.';
+      }
+
       return res.status(400).json({
         error: errorMsg,
         ocr: {
@@ -184,35 +192,35 @@ const validarINEConImagen = async (req, res) => {
       });
     }
 
-    // ===== LIMPIAR Y TRUNCAR NOMBRE =====
+    // ===== GUARDAR EN BD =====
+    // Usar los datos extraídos por OCR si son mejores, sino los del usuario
     let curpFinal = datosExtraidos?.curpEncontrado || curp;
-    let nombreFinal = limpiarNombre(datosExtraidos?.nombreEncontrado || nombre_completo);
+    let nombreFinal = datosExtraidos?.nombreEncontrado || nombre_completo;
     let fechaFinal = datosExtraidos?.fechaEncontrada || fecha_nacimiento;
     let sexoFinal = datosExtraidos?.sexoEncontrado || sexo || '';
 
-    // Truncar nombre a 200 caracteres (seguro)
-    if (nombreFinal && nombreFinal.length > 200) {
-      nombreFinal = nombreFinal.substring(0, 200);
-      console.log(`⚠️ Nombre truncado a 200 caracteres`);
-    }
+    // Limpiar y truncar
+    nombreFinal = limpiarNombre(nombreFinal);
+    if (nombreFinal.length > 200) nombreFinal = nombreFinal.substring(0, 200);
+    if (curpFinal.length > 18) curpFinal = curpFinal.substring(0, 18);
+    if (fechaFinal && fechaFinal.length > 10) fechaFinal = fechaFinal.substring(0, 10);
 
     console.log('📝 Datos a guardar:', { curpFinal, nombreFinal, fechaFinal, sexoFinal });
 
-    // Guardar en BD
     const result = await pool.query(
       `INSERT INTO ine_validacion
-       (id_cliente, numero_ine, curp, nombre_completo, fecha_nacimiento, sexo, 
+       (id_cliente, numero_ine, curp, nombre_completo, fecha_nacimiento, sexo,
         entidad_emision, documento_imagen, selfie_imagen, validado, facial_verificado)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true, $10) RETURNING *`,
       [
-        req.userId, 
-        numero_ine, 
-        curpFinal, 
-        nombreFinal, 
-        fechaFinal, 
-        sexoFinal, 
-        entidad_emision || '', 
-        imagenUrl, 
+        req.userId,
+        numero_ine,
+        curpFinal,
+        nombreFinal,
+        fechaFinal,
+        sexoFinal,
+        entidad_emision || '',
+        imagenUrl,
         selfieUrl,
         resultadoFacial.match
       ]
@@ -237,6 +245,7 @@ const validarINEConImagen = async (req, res) => {
 
   } catch (error) {
     console.error('❌ Error en validarINEConImagen:', error);
+    // Limpiar archivos en caso de error
     if (req.files) {
       if (req.files['ineImage'] && req.files['ineImage'][0] && fs.existsSync(req.files['ineImage'][0].path)) {
         try { fs.unlinkSync(req.files['ineImage'][0].path); } catch(e) {}
