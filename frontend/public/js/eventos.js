@@ -150,7 +150,7 @@ function iniciarCuentasRegresivas() {
   });
 }
 
-// ========== MODAL COMPRA CON MENÚ DE ZONAS VISIBLE ==========
+// ========== MODAL COMPRA ==========
 function mostrarModalCompra(eventoId, esPreventa, eventoNombre, precioUnitario) {
   const modal = document.createElement('div');
   modal.id = 'compraModal';
@@ -244,7 +244,7 @@ async function procederConCompra(eventoId, esPreventa, eventoNombre, precioUnita
   mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asiento, eventoNombre, precioUnitario);
 }
 
-// ========== VALIDACIÓN DE INE CON OCR Y MENSAJE DE ESCANEO ==========
+// ========== MODAL VALIDACIÓN INE CON CÁMARA PARA INE Y SELFIE ==========
 function mostrarModalValidacionINE(callback) {
   const modal = document.createElement('div');
   modal.id = 'ineModal';
@@ -294,10 +294,19 @@ function mostrarModalValidacionINE(callback) {
             <option value="F" style="background:#1a1a1a; color:white;">Femenino</option>
           </select>
         </div>
-        <div style="margin-bottom: 1rem;">
+        
+        <!-- ===== SECCIÓN FOTO INE CON CÁMARA ===== -->
+        <div style="margin-bottom: 1.5rem;">
           <label style="color: #ff3333; display: block; margin-bottom: 0.3rem;"><i class="fas fa-id-card"></i> Foto de tu INE</label>
-          <input type="file" id="fotoINE" accept="image/*" required style="width:100%; padding:0.6rem; background:rgba(255,255,255,0.05); border:1px dashed #ff0000; border-radius:0.8rem; color:white; cursor:pointer;">
+          <input type="file" id="fotoINE" accept="image/*" required style="width:100%; padding:0.6rem; background:rgba(255,255,255,0.05); border:1px dashed #ff0000; border-radius:0.8rem; color:white; cursor:pointer; margin-bottom:0.5rem;">
+          <button type="button" id="ineCamBtn" style="background:rgba(255,0,0,0.2); border:1px solid #ff0000; color:#ff3333; padding:0.5rem 1rem; border-radius:0.8rem; cursor:pointer; width:100%; margin-bottom:0.5rem;">
+            <i class="fas fa-camera"></i> Tomar foto del INE con cámara
+          </button>
+          <video id="ineVideo" style="width:100%; max-height:200px; display:none; margin-top:0.5rem; border-radius:0.5rem; background:#000;" autoplay></video>
+          <button type="button" id="ineCaptureBtn" style="display:none; background:#ff0000; color:white; border:none; padding:0.3rem 1rem; border-radius:0.5rem; cursor:pointer; margin-top:0.5rem; width:100%;">📸 Capturar INE</button>
         </div>
+        
+        <!-- ===== SECCIÓN SELFIE CON CÁMARA ===== -->
         <div style="margin-bottom: 1.5rem;">
           <label style="color: #ff3333; display: block; margin-bottom: 0.3rem;"><i class="fas fa-camera"></i> Selfie (foto de tu cara)</label>
           <input type="file" id="selfieINE" accept="image/*" required style="width:100%; padding:0.6rem; background:rgba(255,255,255,0.05); border:1px dashed #ff0000; border-radius:0.8rem; color:white; cursor:pointer; margin-bottom:0.5rem;">
@@ -307,6 +316,7 @@ function mostrarModalValidacionINE(callback) {
           <video id="selfieVideo" style="width:100%; max-height:200px; display:none; margin-top:0.5rem; border-radius:0.5rem; background:#000;" autoplay></video>
           <button type="button" id="selfieCaptureBtn" style="display:none; background:#ff0000; color:white; border:none; padding:0.3rem 1rem; border-radius:0.5rem; cursor:pointer; margin-top:0.5rem; width:100%;">📸 Capturar selfie</button>
         </div>
+        
         <button type="submit" style="background:linear-gradient(135deg, #cc0000, #ff0000); border:none; padding:0.8rem; border-radius:2rem; font-weight:bold; font-size:1.1rem; color:white; cursor:pointer; width:100%; box-shadow:0 0 20px rgba(255,0,0,0.3); transition:0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
           ✅ Validar y Comprar
         </button>
@@ -318,38 +328,86 @@ function mostrarModalValidacionINE(callback) {
   `;
   document.body.appendChild(modal);
 
-  let stream = null;
-  const video = document.getElementById('selfieVideo');
-  const camBtn = document.getElementById('selfieCamBtn');
-  const captureBtn = document.getElementById('selfieCaptureBtn');
-  const selfieInput = document.getElementById('selfieINE');
+  // ===== LÓGICA PARA CÁMARA DEL INE =====
+  let ineStream = null;
+  const ineVideo = document.getElementById('ineVideo');
+  const ineCamBtn = document.getElementById('ineCamBtn');
+  const ineCaptureBtn = document.getElementById('ineCaptureBtn');
+  const ineInput = document.getElementById('fotoINE');
 
-  camBtn.onclick = async () => {
-    if (video.style.display === 'none') {
+  ineCamBtn.onclick = async () => {
+    if (ineVideo.style.display === 'none') {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        video.srcObject = stream;
-        video.style.display = 'block';
-        captureBtn.style.display = 'block';
-        camBtn.textContent = 'Ocultar cámara';
+        ineStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        ineVideo.srcObject = ineStream;
+        ineVideo.style.display = 'block';
+        ineCaptureBtn.style.display = 'block';
+        ineCamBtn.textContent = 'Ocultar cámara INE';
       } catch(e) {
         showToast('Error al acceder a la cámara. Asegúrate de dar permisos.', 'error');
       }
     } else {
-      if (stream) stream.getTracks().forEach(t => t.stop());
-      video.style.display = 'none';
-      captureBtn.style.display = 'none';
-      camBtn.textContent = 'Tomar selfie con cámara';
+      if (ineStream) ineStream.getTracks().forEach(t => t.stop());
+      ineVideo.style.display = 'none';
+      ineCaptureBtn.style.display = 'none';
+      ineCamBtn.textContent = 'Tomar foto del INE con cámara';
     }
   };
 
-  captureBtn.onclick = () => {
-    if (!stream) { showToast('Activa la cámara primero.', 'warning'); return; }
+  ineCaptureBtn.onclick = () => {
+    if (!ineStream) { showToast('Activa la cámara primero.', 'warning'); return; }
     const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
+    canvas.width = ineVideo.videoWidth || 640;
+    canvas.height = ineVideo.videoHeight || 480;
     const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(ineVideo, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob((blob) => {
+      if (!blob) { showToast('Error al capturar', 'error'); return; }
+      const file = new File([blob], 'ine.jpg', { type: 'image/jpeg' });
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      ineInput.files = dt.files;
+      showToast('✅ Foto de INE capturada', 'success');
+      if (ineStream) ineStream.getTracks().forEach(t => t.stop());
+      ineVideo.style.display = 'none';
+      ineCaptureBtn.style.display = 'none';
+      ineCamBtn.textContent = 'Tomar foto del INE con cámara';
+    }, 'image/jpeg', 0.9);
+  };
+
+  // ===== LÓGICA PARA CÁMARA DE SELFIE =====
+  let selfieStream = null;
+  const selfieVideo = document.getElementById('selfieVideo');
+  const selfieCamBtn = document.getElementById('selfieCamBtn');
+  const selfieCaptureBtn = document.getElementById('selfieCaptureBtn');
+  const selfieInput = document.getElementById('selfieINE');
+
+  selfieCamBtn.onclick = async () => {
+    if (selfieVideo.style.display === 'none') {
+      try {
+        selfieStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        selfieVideo.srcObject = selfieStream;
+        selfieVideo.style.display = 'block';
+        selfieCaptureBtn.style.display = 'block';
+        selfieCamBtn.textContent = 'Ocultar cámara selfie';
+      } catch(e) {
+        showToast('Error al acceder a la cámara. Asegúrate de dar permisos.', 'error');
+      }
+    } else {
+      if (selfieStream) selfieStream.getTracks().forEach(t => t.stop());
+      selfieVideo.style.display = 'none';
+      selfieCaptureBtn.style.display = 'none';
+      selfieCamBtn.textContent = 'Tomar selfie con cámara';
+    }
+  };
+
+  selfieCaptureBtn.onclick = () => {
+    if (!selfieStream) { showToast('Activa la cámara primero.', 'warning'); return; }
+    const canvas = document.createElement('canvas');
+    canvas.width = selfieVideo.videoWidth || 640;
+    canvas.height = selfieVideo.videoHeight || 480;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(selfieVideo, 0, 0, canvas.width, canvas.height);
     canvas.toBlob((blob) => {
       if (!blob) { showToast('Error al capturar', 'error'); return; }
       const file = new File([blob], 'selfie.jpg', { type: 'image/jpeg' });
@@ -357,20 +415,21 @@ function mostrarModalValidacionINE(callback) {
       dt.items.add(file);
       selfieInput.files = dt.files;
       showToast('✅ Selfie capturada', 'success');
-      if (stream) stream.getTracks().forEach(t => t.stop());
-      video.style.display = 'none';
-      captureBtn.style.display = 'none';
-      camBtn.textContent = 'Tomar selfie con cámara';
+      if (selfieStream) selfieStream.getTracks().forEach(t => t.stop());
+      selfieVideo.style.display = 'none';
+      selfieCaptureBtn.style.display = 'none';
+      selfieCamBtn.textContent = 'Tomar selfie con cámara';
     }, 'image/jpeg', 0.9);
   };
 
   document.getElementById('closeINE').onclick = () => {
-    if (stream) stream.getTracks().forEach(t => t.stop());
+    if (ineStream) ineStream.getTracks().forEach(t => t.stop());
+    if (selfieStream) selfieStream.getTracks().forEach(t => t.stop());
     modal.remove();
     callback(false);
   };
 
-  // ===== FORMULARIO DE VALIDACIÓN CON OCR Y MENSAJE DE ESCANEO =====
+  // ===== FORMULARIO DE VALIDACIÓN =====
   document.getElementById('ineFormModal').onsubmit = async (e) => {
     e.preventDefault();
     showToast('🔍 Escaneando INE... Por favor espera unos segundos.', 'info', 8000);
@@ -385,8 +444,6 @@ function mostrarModalValidacionINE(callback) {
       showToast('Por favor, selecciona tu sexo (Masculino o Femenino)', 'warning');
       return;
     }
-
-    console.log('📤 Datos enviados (frontend):', { numeroINE, curp, nombreCompleto, fechaNacimiento, sexo });
 
     const formData = new FormData();
     formData.append('numero_ine', numeroINE);
@@ -417,7 +474,8 @@ function mostrarModalValidacionINE(callback) {
       if (res.ok && data.success) {
         showToast('✅ INE validado correctamente. Ahora puedes comprar.', 'success');
         modal.remove();
-        if (stream) stream.getTracks().forEach(t => t.stop());
+        if (ineStream) ineStream.getTracks().forEach(t => t.stop());
+        if (selfieStream) selfieStream.getTracks().forEach(t => t.stop());
         callback(true);
       } else {
         const errorMsg = data.error || 'Error al validar';
@@ -427,6 +485,7 @@ function mostrarModalValidacionINE(callback) {
           const ocr = data.ocr.datosExtraidos;
           let detalles = '📝 Datos extraídos por OCR:\n';
           detalles += `CURP: ${ocr.curpEncontrado || 'No detectado'}\n`;
+          detalles += `INE: ${ocr.ineEncontrado || 'No detectado'}\n`;
           detalles += `Nombre: ${ocr.nombreEncontrado || 'No detectado'}\n`;
           detalles += `Fecha: ${ocr.fechaEncontrada || 'No detectada'}\n`;
           detalles += `Sexo: ${ocr.sexoEncontrado || 'No detectado'}\n`;
@@ -444,7 +503,7 @@ function mostrarModalValidacionINE(callback) {
   };
 }
 
-// ========== MODAL PAGO CON STRIPE CHECKOUT ==========
+// ========== MODAL PAGO CON STRIPE ==========
 function mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asiento, eventoNombre, precioUnitario) {
   const total = precioUnitario * cantidad;
   const modal = document.createElement('div');
@@ -505,7 +564,6 @@ function mostrarModalPago(eventoId, esPreventa, tipoPrecio, cantidad, zona, asie
       });
       const data = await res.json();
       if (data.url) {
-        // Redirigir a Stripe Checkout
         window.location.href = data.url;
       } else {
         showToast('❌ Error al iniciar el pago: ' + (data.error || 'Error desconocido'), 'error');
