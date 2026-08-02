@@ -40,7 +40,7 @@ const crearSesionPago = async (req, res) => {
       imagenes = [eventoData.imagen_url];
     }
 
-    const baseUrl = process.env.FRONTEND_URL || 'https://myticket.onrender.com';
+    const baseUrl = process.env.FRONTEND_URL || process.env.RENDER_EXTERNAL_URL || 'https://myticket-wqrq.onrender.com';
     console.log(`🌐 URL base para redirección: ${baseUrl}`);
 
     // Crear sesión en Stripe
@@ -102,7 +102,22 @@ const confirmarPago = async (req, res) => {
     }
 
     // 2. Obtener los datos de la sesión
-    const clientReference = JSON.parse(session.client_reference_id);
+    let clientReference;
+    try {
+      clientReference = JSON.parse(session.client_reference_id);
+    } catch (e) {
+      // Si no se puede parsear, intentar obtener de metadata
+      clientReference = {
+        userId: parseInt(session.metadata.userId),
+        eventoId: parseInt(session.metadata.eventoId),
+        cantidad: parseInt(session.metadata.cantidad),
+        zona: 'General',
+        asiento: 'Libre',
+        tipoPrecio: 'normal',
+        precioUnitario: 0
+      };
+    }
+
     const { userId, eventoId, cantidad, zona, asiento, tipoPrecio, precioUnitario } = clientReference;
 
     // 3. Guardar el boleto en la base de datos
@@ -121,10 +136,12 @@ const confirmarPago = async (req, res) => {
 
       // Obtener nombre del usuario
       const userData = await client.query('SELECT nombre FROM cliente WHERE id_cliente = $1', [userId]);
+      if (userData.rows.length === 0) throw new Error('Usuario no encontrado');
       const nombre_usuario = userData.rows[0].nombre;
 
       // Generar HTML del boleto
       const imagen_url = eventoData.imagen_url || null;
+      const precioFinal = precioUnitario || eventoData.precio_normal;
       const boletoHTML = await generarBoletoHTML({
         codigo: codigoUnico,
         evento: eventoData.nombre_evento,
@@ -133,7 +150,7 @@ const confirmarPago = async (req, res) => {
         ubicacion: eventoData.ubicacion,
         zona: zona || 'General',
         asiento: asiento || 'Libre',
-        precio: precioUnitario,
+        precio: precioFinal,
         imagen_url: imagen_url
       });
 
@@ -153,18 +170,18 @@ const confirmarPago = async (req, res) => {
       await client.query(
         `INSERT INTO venta (id_cliente, id_evento, id_boleto, fecha_venta, hora_venta, precio_pagado, referencia_boleto)
          VALUES ($1,$2,$3,CURRENT_DATE,CURRENT_TIME,$4,$5)`,
-        [userId, eventoId, boletoId, precioUnitario * cantidad, referencia]
+        [userId, eventoId, boletoId, precioFinal * cantidad, referencia]
       );
 
       // Registrar transacción
       await client.query(
         `INSERT INTO transacciones (id_cliente, id_boleto, fecha_transaccion, monto, estado)
          VALUES ($1,$2,CURRENT_DATE,$3,'completado')`,
-        [userId, boletoId, precioUnitario * cantidad]
+        [userId, boletoId, precioFinal * cantidad]
       );
 
       await client.query('COMMIT');
-      console.log(`✅ Boleto ${codigoUnico} creado para usuario ${userId} (confirmación manual)`);
+      console.log(`✅ Boleto ${codigoUnico} creado para usuario ${userId}`);
 
       res.json({ success: true, boletoId });
     } catch (error) {
@@ -180,7 +197,7 @@ const confirmarPago = async (req, res) => {
   }
 };
 
-// ===== WEBHOOK DE STRIPE (OPCIONAL) =====
+// ===== WEBHOOK DE STRIPE =====
 const webhook = async (req, res) => {
   const sig = req.headers['stripe-signature'];
   let event;
@@ -195,11 +212,13 @@ const webhook = async (req, res) => {
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
+  console.log(`📩 Webhook recibido: ${event.type}`);
+
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object;
-    console.log(`✅ Webhook recibido para sesión ${session.id}`);
+    console.log(`✅ Webhook: sesión ${session.id} completada`);
     // Aquí puedes llamar a la misma lógica de guardado si quieres redundancia
-    // Pero por simplicidad, ya tenemos la confirmación manual.
+    // Pero la confirmación manual ya debería funcionar
   }
 
   res.json({ received: true });
